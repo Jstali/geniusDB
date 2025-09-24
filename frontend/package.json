@@ -12,13 +12,23 @@
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
     "@tailwindcss/vite": "^4.1.13",
+    "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "echarts": "^5.6.0",
+    "echarts-for-react": "^3.0.2",
+    "echarts-gl": "^2.0.9",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.544.0",
+    "mapbox-gl": "^3.15.0",
+    "pigeon-maps": "^0.22.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
+    "react-map-gl": "^8.0.4",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss": "^4.1.13"
+    "tailwindcss": "^4.1.13",
+    "victory": "^37.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",

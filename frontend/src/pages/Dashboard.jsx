@@ -3,6 +3,8 @@ import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import TableView from "../components/TableView";
 import MapView from "../components/MapView";
+import MapViewComponent from "../components/MapViewComponent";
+import VictoryCharts from "../components/VictoryCharts";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("Home");
@@ -26,26 +28,17 @@ const Dashboard = () => {
       case "Charts":
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">Charts</h2>
-            <p>Charts content goes here</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-2">Chart 1</h3>
-                <div className="h-64 bg-gray-200 rounded flex items-center justify-center">
-                  <span>Chart Visualization</span>
-                </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-2">Chart 2</h3>
-                <div className="h-64 bg-gray-200 rounded flex items-center justify-center">
-                  <span>Chart Visualization</span>
-                </div>
-              </div>
-            </div>
+            <VictoryCharts />
           </div>
         );
       case "Map View":
-        return <MapView />;
+        return (
+          <div className="p-6">
+            <div className="grid grid-cols-1 gap-6">
+              <MapViewComponent />
+            </div>
+          </div>
+        );
       case "Table View":
         return <TableView />;
       case "Admin Panel":

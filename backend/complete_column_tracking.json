@@ -1,0 +1,463 @@
+{
+  "database_columns": {
+    "id": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "id"
+    },
+    "assessmentdate": {
+      "table": "grid_and_primary_sites",
+      "original_column": "assessmentdate"
+    },
+    "calculatedresistance": {
+      "table": "grid_and_primary_sites",
+      "original_column": "calculatedresistance"
+    },
+    "county": {
+      "table": "grid_and_primary_sites",
+      "original_column": "county"
+    },
+    "datecommissioned": {
+      "table": "grid_and_primary_sites",
+      "original_column": "datecommissioned"
+    },
+    "easting": {
+      "table": "grid_and_primary_sites",
+      "original_column": "easting"
+    },
+    "gridref": {
+      "table": "grid_and_primary_sites",
+      "original_column": "gridref"
+    },
+    "last_report": {
+      "table": "grid_and_primary_sites",
+      "original_column": "last_report"
+    },
+    "licencearea": {
+      "table": "grid_and_primary_sites",
+      "original_column": "licencearea"
+    },
+    "local_authority": {
+      "table": "grid_and_primary_sites",
+      "original_column": "local_authority"
+    },
+    "local_authority_code": {
+      "table": "grid_and_primary_sites",
+      "original_column": "local_authority_code"
+    },
+    "maxdemandsummer": {
+      "table": "grid_and_primary_sites",
+      "original_column": "maxdemandsummer"
+    },
+    "maxdemandwinter": {
+      "table": "grid_and_primary_sites",
+      "original_column": "maxdemandwinter"
+    },
+    "measuredresistance_ohm": {
+      "table": "grid_and_primary_sites",
+      "original_column": "measuredresistance_ohm"
+    },
+    "next_assessmentdate": {
+      "table": "grid_and_primary_sites",
+      "original_column": "next_assessmentdate"
+    },
+    "northing": {
+      "table": "grid_and_primary_sites",
+      "original_column": "northing"
+    },
+    "postcode": {
+      "table": "grid_and_primary_sites",
+      "original_column": "postcode"
+    },
+    "powertransformercount": {
+      "table": "grid_and_primary_sites",
+      "original_column": "powertransformercount"
+    },
+    "reversepower": {
+      "table": "grid_and_primary_sites",
+      "original_column": "reversepower"
+    },
+    "siteclassification": {
+      "table": "grid_and_primary_sites",
+      "original_column": "siteclassification"
+    },
+    "sitefunctionallocation": {
+      "table": "ltds_table_5_generation",
+      "original_column": "sitefunctionallocation"
+    },
+    "sitename": {
+      "table": "grid_and_primary_sites",
+      "original_column": "sitename"
+    },
+    "sitetype": {
+      "table": "grid_and_primary_sites",
+      "original_column": "sitetype"
+    },
+    "sitevoltage": {
+      "table": "grid_and_primary_sites",
+      "original_column": "sitevoltage"
+    },
+    "spatial_coordinates": {
+      "table": "grid_and_primary_sites",
+      "original_column": "spatial_coordinates"
+    },
+    "street": {
+      "table": "grid_and_primary_sites",
+      "original_column": "street"
+    },
+    "suburb": {
+      "table": "grid_and_primary_sites",
+      "original_column": "suburb"
+    },
+    "towncity": {
+      "table": "grid_and_primary_sites",
+      "original_column": "towncity"
+    },
+    "transratingsummer": {
+      "table": "grid_and_primary_sites",
+      "original_column": "transratingsummer"
+    },
+    "transratingwinter": {
+      "table": "grid_and_primary_sites",
+      "original_column": "transratingwinter"
+    },
+    "what3words": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "what3words"
+    },
+    "__hash": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "__hash"
+    },
+    "__ingested_at": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "__ingested_at"
+    },
+    "already_connected_registered_capacity_mw": {
+      "table": "ukpn_embedded_capacity_register_1_under_1mw",
+      "original_column": "already_connected_registered_capacity_mw"
+    },
+    "accepted_to_connect_registered_capacity_mw": {
+      "table": "ukpn_embedded_capacity_register_1_under_1mw",
+      "original_column": "accepted_to_connect_registered_capacity_mw"
+    },
+    "connection_status": {
+      "table": "ukpn_embedded_capacity_register_1_under_1mw",
+      "original_column": "connection_status"
+    },
+    "grid_supply_point": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "grid_supply_point"
+    },
+    "bulk_supply_point": {
+      "table": "ukpn_embedded_capacity_register_1_under_1mw",
+      "original_column": "bulk_supply_point"
+    },
+    "installedcapacity_mva": {
+      "table": "ltds_table_5_generation",
+      "original_column": "installedcapacity_mva"
+    },
+    "functional_location": {
+      "table": "ukpn_dnoa",
+      "original_column": "functional_location"
+    },
+    "substation_title": {
+      "table": "ukpn_dnoa",
+      "original_column": "substation_title"
+    },
+    "constraint_description": {
+      "table": "ukpn_dnoa",
+      "original_column": "constraint_description"
+    },
+    "traditional_solution": {
+      "table": "ukpn_dnoa",
+      "original_column": "traditional_solution"
+    },
+    "constraint_season": {
+      "table": "ukpn_dnoa",
+      "original_column": "constraint_season"
+    },
+    "customers_served": {
+      "table": "ukpn_dnoa",
+      "original_column": "customers_served"
+    },
+    "dnoa_result": {
+      "table": "ukpn_dnoa",
+      "original_column": "dnoa_result"
+    },
+    "dnoa_result_description": {
+      "table": "ukpn_dnoa",
+      "original_column": "dnoa_result_description"
+    },
+    "dnoa_result_history_2023": {
+      "table": "ukpn_dnoa",
+      "original_column": "dnoa_result_history_2023"
+    },
+    "dnoa_result_history_2024": {
+      "table": "ukpn_dnoa",
+      "original_column": "dnoa_result_history_2024"
+    },
+    "dnoa_result_history_2025": {
+      "table": "ukpn_dnoa",
+      "original_column": "dnoa_result_history_2025"
+    },
+    "flexibility_procurement_2024_25": {
+      "table": "ukpn_dnoa",
+      "original_column": "flexibility_procurement_2024_25"
+    },
+    "flexibility_procurement_2025_26": {
+      "table": "ukpn_dnoa",
+      "original_column": "flexibility_procurement_2025_26"
+    },
+    "flexibility_procurement_2026_27": {
+      "table": "ukpn_dnoa",
+      "original_column": "flexibility_procurement_2026_27"
+    },
+    "flexibility_procurement_2027_28": {
+      "table": "ukpn_dnoa",
+      "original_column": "flexibility_procurement_2027_28"
+    },
+    "flexibility_procurement_2028_29": {
+      "table": "ukpn_dnoa",
+      "original_column": "flexibility_procurement_2028_29"
+    },
+    "constraint_occurrence_year": {
+      "table": "ukpn_dnoa",
+      "original_column": "constraint_occurrence_year"
+    },
+    "current_status": {
+      "table": "ukpn_dnoa",
+      "original_column": "current_status"
+    },
+    "type": {
+      "table": "ukpn_dnoa",
+      "original_column": "type"
+    },
+    "site": {
+      "table": "ukpn_dnoa",
+      "original_column": "site"
+    },
+    "AssetType_Quantity": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "asset_type_or_quantity"
+    },
+    "AssociatedGSP": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "associated_gsp"
+    },
+    "Connectivity_Voltage(kV)": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "connectivity_voltage"
+    },
+    "DNO": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "dno"
+    },
+    "ExpectedCompletionYear": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "expected_completion_year"
+    },
+    "ExpectedStartYear": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "expected_start_year"
+    },
+    "Justification": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "justification_for_the_need"
+    },
+    "LTDSName": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "ltds_name"
+    },
+    "SiteFunctionalLocation": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "site_functional_location"
+    },
+    "Source": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "source"
+    },
+    "SpatialCoordinates": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "spatial_coordinates"
+    },
+    "Substation_or_Circuit": {
+      "table": "ukpn_ltds_infrastructure_projects",
+      "original_column": "substation_or_circuit_ple_name"
+    },
+    "minimum_observed_power_flow": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "minimum_observed_power_flow"
+    },
+    "maximum_observed_power_flow": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "maximum_observed_power_flow"
+    },
+    "asset_import_limit": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "asset_import_limit"
+    },
+    "asset_export_limit": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "asset_export_limit"
+    },
+    "technical_limit_import_summer": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "technical_limit_import_summer"
+    },
+    "technical_limit_import_winter": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "technical_limit_import_winter"
+    },
+    "technical_limit_import_access_period": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "technical_limit_import_access_period"
+    },
+    "technical_limit_export": {
+      "table": "ukpn_grid_supply_points_overview",
+      "original_column": "technical_limit_export"
+    }
+  },
+  "calculated_columns": {
+    "Spare_Summer": {
+      "description": "Summer spare capacity",
+      "formula": "Single rating: (rating - demand) * SPARE_MULTIPLIER; Multiple: ((sum(ratings) - max(rating)) - demand) * SPARE_MULTIPLIER"
+    },
+    "Spare_Winter": {
+      "description": "Winter spare capacity",
+      "formula": "Single rating: (rating - demand) * SPARE_MULTIPLIER; Multiple: ((sum(ratings) - max(rating)) - demand) * SPARE_MULTIPLIER"
+    },
+    "Generation_Capacity": {
+      "description": "Generation capacity calculation",
+      "formula": "min(gen_capacity_summer, gen_capacity_winter)"
+    },
+    "Firm_Capacity": {
+      "description": "Firm capacity based on transformer ratings with diversity factor",
+      "formula": "Scenario-based: Multiple ratings: ((sum(ratings) - max(rating)) * 0.96), Single rating: (rating * 0.96), Final: min(summer_result, winter_result)"
+    },
+    "Trans1_Summer": {
+      "description": "Summer rating for transformer 1",
+      "formula": "Extracted from transratingsummer column, position 1, NULL if missing"
+    },
+    "Trans2_Summer": {
+      "description": "Summer rating for transformer 2",
+      "formula": "Extracted from transratingsummer column, position 2, NULL if missing"
+    },
+    "Trans3_Summer": {
+      "description": "Summer rating for transformer 3",
+      "formula": "Extracted from transratingsummer column, position 3, NULL if missing"
+    },
+    "Trans4_Summer": {
+      "description": "Summer rating for transformer 4",
+      "formula": "Extracted from transratingsummer column, position 4, NULL if missing"
+    },
+    "Trans1_Winter": {
+      "description": "Winter rating for transformer 1",
+      "formula": "Extracted from transratingwinter column, position 1, NULL if missing"
+    },
+    "Trans2_Winter": {
+      "description": "Winter rating for transformer 2",
+      "formula": "Extracted from transratingwinter column, position 2, NULL if missing"
+    },
+    "Trans3_Winter": {
+      "description": "Winter rating for transformer 3",
+      "formula": "Extracted from transratingwinter column, position 3, NULL if missing"
+    },
+    "Trans4_Winter": {
+      "description": "Winter rating for transformer 4",
+      "formula": "Extracted from transratingwinter column, position 4, NULL if missing"
+    },
+    "Trans5_Summer": {
+      "description": "Summer rating for transformer 5",
+      "formula": "Extracted from transratingsummer column, position 5, NULL if missing"
+    },
+    "Trans5_Winter": {
+      "description": "Winter rating for transformer 5",
+      "formula": "Extracted from transratingwinter column, position 5, NULL if missing"
+    },
+    "Trans6_Summer": {
+      "description": "Summer rating for transformer 6",
+      "formula": "Extracted from transratingsummer column, position 6, NULL if missing"
+    },
+    "Trans6_Winter": {
+      "description": "Winter rating for transformer 6",
+      "formula": "Extracted from transratingwinter column, position 6, NULL if missing"
+    },
+    "Trans7_Summer": {
+      "description": "Summer rating for transformer 7",
+      "formula": "Extracted from transratingsummer column, position 7, NULL if missing"
+    },
+    "Trans8_Summer": {
+      "description": "Summer rating for transformer 8",
+      "formula": "Extracted from transratingsummer column, position 8, NULL if missing"
+    },
+    "Trans7_Winter": {
+      "description": "Winter rating for transformer 7",
+      "formula": "Extracted from transratingwinter column, position 7, NULL if missing"
+    },
+    "Trans8_Winter": {
+      "description": "Winter rating for transformer 8",
+      "formula": "Extracted from transratingwinter column, position 8, NULL if missing"
+    },
+    "Total Gen <1 (MW)": {
+      "description": "Total generation capacity under 1MW",
+      "formula": "ECR < 1MVA Already connected + ECR < 1MVA Accepted to connect"
+    },
+    "Total Gen >1 (MW)": {
+      "description": "Total generation capacity over 1MW",
+      "formula": "ECR > 1MVA Already connected + ECR > 1MVA Accepted to connect"
+    },
+    "Total_ECR_Capacity": {
+      "description": "Total ECR capacity",
+      "formula": "Total Gen <1 (MW) + Total Gen >1 (MW)"
+    },
+    "Generation_Headroom_MW": {
+      "description": "Generation headroom calculation",
+      "formula": "Generation_Capacity - (ECR > 1MVA Already connected + ECR > 1MVA Accepted to connect + ECR < 1MVA Already connected + ECR < 1MVA Accepted to connect)"
+    },
+    "Deviation_Percentage": {
+      "description": "Percentage deviation between Installed Capacity MVA and Max Total Gen",
+      "formula": "|installedcapacity_mva - MAX(Total Gen <1 (MW), Total Gen >1 (MW))| / installedcapacity_mva * 100"
+    },
+    "Deviation": {
+      "description": "Deviation flag (Yes if >5%, No if <=5%)",
+      "formula": "Yes if Deviation_Percentage > 5%, else No"
+    }
+  },
+  "renamed_columns": {
+    "sitefunctionallocation": "Functional Location",
+    "AssetType_Quantity": "asset_type_or_quantity",
+    "AssociatedGSP": "associated_gsp",
+    "Connectivity_Voltage(kV)": "connectivity_voltage",
+    "DNO": "dno",
+    "ExpectedCompletionYear": "expected_completion_year",
+    "ExpectedStartYear": "expected_start_year",
+    "Justification": "justification_for_the_need",
+    "LTDSName": "ltds_name",
+    "SiteFunctionalLocation": "site_functional_location",
+    "Source": "source",
+    "SpatialCoordinates": "spatial_coordinates",
+    "Substation_or_Circuit": "substation_or_circuit_ple_name"
+  },
+  "aggregated_columns": {
+    "ECR > 1MVA Already connected": {
+      "source_table": "ukpn_embedded_capacity_register",
+      "aggregation": "SUM of Already connected Registered Capacity (MW) WHERE Connection Status = \"Connected\" OR blank/null"
+    },
+    "ECR > 1MVA Accepted to connect": {
+      "source_table": "ukpn_embedded_capacity_register",
+      "aggregation": "SUM of Accepted to Connect Registered Capacity (MW) WHERE Connection Status = \"Accepted to Connect\" OR blank/null"
+    },
+    "ECR < 1MVA Already connected": {
+      "source_table": "ukpn_embedded_capacity_register_1_under_1mw",
+      "aggregation": "SUM of Already connected Registered Capacity (MW) WHERE Connection Status = \"Connected\" OR blank/null"
+    },
+    "ECR < 1MVA Accepted to connect": {
+      "source_table": "ukpn_embedded_capacity_register_1_under_1mw",
+      "aggregation": "SUM of Accepted to Connect Registered Capacity (MW) WHERE Connection Status = \"Accepted to Connect\" OR blank/null"
+    },
+    "installedcapacity_mva": {
+      "source_table": "ltds_table_5_generation",
+      "aggregation": "SUM of installedcapacity_mva"
+    }
+  }
+}
