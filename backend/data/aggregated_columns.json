@@ -1,0 +1,22 @@
+{
+  "ECR > 1MVA Already connected": {
+    "source_table": "ukpn_embedded_capacity_register",
+    "aggregation": "SUM of Already connected Registered Capacity (MW) WHERE Connection Status = \"Connected\" OR blank/null"
+  },
+  "ECR > 1MVA Accepted to connect": {
+    "source_table": "ukpn_embedded_capacity_register",
+    "aggregation": "SUM of Accepted to Connect Registered Capacity (MW) WHERE Connection Status = \"Accepted to Connect\" OR blank/null"
+  },
+  "ECR < 1MVA Already connected": {
+    "source_table": "ukpn_embedded_capacity_register_1_under_1mw",
+    "aggregation": "SUM of Already connected Registered Capacity (MW) WHERE Connection Status = \"Connected\" OR blank/null"
+  },
+  "ECR < 1MVA Accepted to connect": {
+    "source_table": "ukpn_embedded_capacity_register_1_under_1mw",
+    "aggregation": "SUM of Accepted to Connect Registered Capacity (MW) WHERE Connection Status = \"Accepted to Connect\" OR blank/null"
+  },
+  "installedcapacity_mva": {
+    "source_table": "ltds_table_5_generation",
+    "aggregation": "SUM of installedcapacity_mva"
+  }
+}

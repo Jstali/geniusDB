@@ -1,0 +1,330 @@
+{
+  "ukpn_ltds_infrastructure_projects": [
+    {
+      "column_name": "id",
+      "original_name": "id"
+    },
+    {
+      "column_name": "what3words",
+      "original_name": "what3words"
+    },
+    {
+      "column_name": "__hash",
+      "original_name": "__hash"
+    },
+    {
+      "column_name": "__ingested_at",
+      "original_name": "__ingested_at"
+    },
+    {
+      "column_name": "AssetType_Quantity",
+      "original_name": "asset_type_or_quantity"
+    },
+    {
+      "column_name": "AssociatedGSP",
+      "original_name": "associated_gsp"
+    },
+    {
+      "column_name": "Connectivity_Voltage(kV)",
+      "original_name": "connectivity_voltage"
+    },
+    {
+      "column_name": "DNO",
+      "original_name": "dno"
+    },
+    {
+      "column_name": "ExpectedCompletionYear",
+      "original_name": "expected_completion_year"
+    },
+    {
+      "column_name": "ExpectedStartYear",
+      "original_name": "expected_start_year"
+    },
+    {
+      "column_name": "Justification",
+      "original_name": "justification_for_the_need"
+    },
+    {
+      "column_name": "LTDSName",
+      "original_name": "ltds_name"
+    },
+    {
+      "column_name": "SiteFunctionalLocation",
+      "original_name": "site_functional_location"
+    },
+    {
+      "column_name": "Source",
+      "original_name": "source"
+    },
+    {
+      "column_name": "SpatialCoordinates",
+      "original_name": "spatial_coordinates"
+    },
+    {
+      "column_name": "Substation_or_Circuit",
+      "original_name": "substation_or_circuit_ple_name"
+    }
+  ],
+  "grid_and_primary_sites": [
+    {
+      "column_name": "assessmentdate",
+      "original_name": "assessmentdate"
+    },
+    {
+      "column_name": "calculatedresistance",
+      "original_name": "calculatedresistance"
+    },
+    {
+      "column_name": "county",
+      "original_name": "county"
+    },
+    {
+      "column_name": "datecommissioned",
+      "original_name": "datecommissioned"
+    },
+    {
+      "column_name": "easting",
+      "original_name": "easting"
+    },
+    {
+      "column_name": "gridref",
+      "original_name": "gridref"
+    },
+    {
+      "column_name": "last_report",
+      "original_name": "last_report"
+    },
+    {
+      "column_name": "licencearea",
+      "original_name": "licencearea"
+    },
+    {
+      "column_name": "local_authority",
+      "original_name": "local_authority"
+    },
+    {
+      "column_name": "local_authority_code",
+      "original_name": "local_authority_code"
+    },
+    {
+      "column_name": "maxdemandsummer",
+      "original_name": "maxdemandsummer"
+    },
+    {
+      "column_name": "maxdemandwinter",
+      "original_name": "maxdemandwinter"
+    },
+    {
+      "column_name": "measuredresistance_ohm",
+      "original_name": "measuredresistance_ohm"
+    },
+    {
+      "column_name": "next_assessmentdate",
+      "original_name": "next_assessmentdate"
+    },
+    {
+      "column_name": "northing",
+      "original_name": "northing"
+    },
+    {
+      "column_name": "postcode",
+      "original_name": "postcode"
+    },
+    {
+      "column_name": "powertransformercount",
+      "original_name": "powertransformercount"
+    },
+    {
+      "column_name": "reversepower",
+      "original_name": "reversepower"
+    },
+    {
+      "column_name": "siteclassification",
+      "original_name": "siteclassification"
+    },
+    {
+      "column_name": "sitename",
+      "original_name": "sitename"
+    },
+    {
+      "column_name": "sitetype",
+      "original_name": "sitetype"
+    },
+    {
+      "column_name": "sitevoltage",
+      "original_name": "sitevoltage"
+    },
+    {
+      "column_name": "spatial_coordinates",
+      "original_name": "spatial_coordinates"
+    },
+    {
+      "column_name": "street",
+      "original_name": "street"
+    },
+    {
+      "column_name": "suburb",
+      "original_name": "suburb"
+    },
+    {
+      "column_name": "towncity",
+      "original_name": "towncity"
+    },
+    {
+      "column_name": "transratingsummer",
+      "original_name": "transratingsummer"
+    },
+    {
+      "column_name": "transratingwinter",
+      "original_name": "transratingwinter"
+    }
+  ],
+  "ltds_table_5_generation": [
+    {
+      "column_name": "sitefunctionallocation",
+      "original_name": "sitefunctionallocation"
+    },
+    {
+      "column_name": "installedcapacity_mva",
+      "original_name": "installedcapacity_mva"
+    }
+  ],
+  "ukpn_embedded_capacity_register_1_under_1mw": [
+    {
+      "column_name": "already_connected_registered_capacity_mw",
+      "original_name": "already_connected_registered_capacity_mw"
+    },
+    {
+      "column_name": "accepted_to_connect_registered_capacity_mw",
+      "original_name": "accepted_to_connect_registered_capacity_mw"
+    },
+    {
+      "column_name": "connection_status",
+      "original_name": "connection_status"
+    },
+    {
+      "column_name": "bulk_supply_point",
+      "original_name": "bulk_supply_point"
+    }
+  ],
+  "ukpn_grid_supply_points_overview": [
+    {
+      "column_name": "grid_supply_point",
+      "original_name": "grid_supply_point"
+    },
+    {
+      "column_name": "minimum_observed_power_flow",
+      "original_name": "minimum_observed_power_flow"
+    },
+    {
+      "column_name": "maximum_observed_power_flow",
+      "original_name": "maximum_observed_power_flow"
+    },
+    {
+      "column_name": "asset_import_limit",
+      "original_name": "asset_import_limit"
+    },
+    {
+      "column_name": "asset_export_limit",
+      "original_name": "asset_export_limit"
+    },
+    {
+      "column_name": "technical_limit_import_summer",
+      "original_name": "technical_limit_import_summer"
+    },
+    {
+      "column_name": "technical_limit_import_winter",
+      "original_name": "technical_limit_import_winter"
+    },
+    {
+      "column_name": "technical_limit_import_access_period",
+      "original_name": "technical_limit_import_access_period"
+    },
+    {
+      "column_name": "technical_limit_export",
+      "original_name": "technical_limit_export"
+    }
+  ],
+  "ukpn_dnoa": [
+    {
+      "column_name": "functional_location",
+      "original_name": "functional_location"
+    },
+    {
+      "column_name": "substation_title",
+      "original_name": "substation_title"
+    },
+    {
+      "column_name": "constraint_description",
+      "original_name": "constraint_description"
+    },
+    {
+      "column_name": "traditional_solution",
+      "original_name": "traditional_solution"
+    },
+    {
+      "column_name": "constraint_season",
+      "original_name": "constraint_season"
+    },
+    {
+      "column_name": "customers_served",
+      "original_name": "customers_served"
+    },
+    {
+      "column_name": "dnoa_result",
+      "original_name": "dnoa_result"
+    },
+    {
+      "column_name": "dnoa_result_description",
+      "original_name": "dnoa_result_description"
+    },
+    {
+      "column_name": "dnoa_result_history_2023",
+      "original_name": "dnoa_result_history_2023"
+    },
+    {
+      "column_name": "dnoa_result_history_2024",
+      "original_name": "dnoa_result_history_2024"
+    },
+    {
+      "column_name": "dnoa_result_history_2025",
+      "original_name": "dnoa_result_history_2025"
+    },
+    {
+      "column_name": "flexibility_procurement_2024_25",
+      "original_name": "flexibility_procurement_2024_25"
+    },
+    {
+      "column_name": "flexibility_procurement_2025_26",
+      "original_name": "flexibility_procurement_2025_26"
+    },
+    {
+      "column_name": "flexibility_procurement_2026_27",
+      "original_name": "flexibility_procurement_2026_27"
+    },
+    {
+      "column_name": "flexibility_procurement_2027_28",
+      "original_name": "flexibility_procurement_2027_28"
+    },
+    {
+      "column_name": "flexibility_procurement_2028_29",
+      "original_name": "flexibility_procurement_2028_29"
+    },
+    {
+      "column_name": "constraint_occurrence_year",
+      "original_name": "constraint_occurrence_year"
+    },
+    {
+      "column_name": "current_status",
+      "original_name": "current_status"
+    },
+    {
+      "column_name": "type",
+      "original_name": "type"
+    },
+    {
+      "column_name": "site",
+      "original_name": "site"
+    }
+  ]
+}

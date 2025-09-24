@@ -1,0 +1,106 @@
+{
+  "Spare_Summer": {
+    "description": "Summer spare capacity",
+    "formula": "Single rating: (rating - demand) * SPARE_MULTIPLIER; Multiple: ((sum(ratings) - max(rating)) - demand) * SPARE_MULTIPLIER"
+  },
+  "Spare_Winter": {
+    "description": "Winter spare capacity",
+    "formula": "Single rating: (rating - demand) * SPARE_MULTIPLIER; Multiple: ((sum(ratings) - max(rating)) - demand) * SPARE_MULTIPLIER"
+  },
+  "Generation_Capacity": {
+    "description": "Generation capacity calculation",
+    "formula": "min(gen_capacity_summer, gen_capacity_winter)"
+  },
+  "Firm_Capacity": {
+    "description": "Firm capacity based on transformer ratings with diversity factor",
+    "formula": "Scenario-based: Multiple ratings: ((sum(ratings) - max(rating)) * 0.96), Single rating: (rating * 0.96), Final: min(summer_result, winter_result)"
+  },
+  "Trans1_Summer": {
+    "description": "Summer rating for transformer 1",
+    "formula": "Extracted from transratingsummer column, position 1, NULL if missing"
+  },
+  "Trans2_Summer": {
+    "description": "Summer rating for transformer 2",
+    "formula": "Extracted from transratingsummer column, position 2, NULL if missing"
+  },
+  "Trans3_Summer": {
+    "description": "Summer rating for transformer 3",
+    "formula": "Extracted from transratingsummer column, position 3, NULL if missing"
+  },
+  "Trans4_Summer": {
+    "description": "Summer rating for transformer 4",
+    "formula": "Extracted from transratingsummer column, position 4, NULL if missing"
+  },
+  "Trans1_Winter": {
+    "description": "Winter rating for transformer 1",
+    "formula": "Extracted from transratingwinter column, position 1, NULL if missing"
+  },
+  "Trans2_Winter": {
+    "description": "Winter rating for transformer 2",
+    "formula": "Extracted from transratingwinter column, position 2, NULL if missing"
+  },
+  "Trans3_Winter": {
+    "description": "Winter rating for transformer 3",
+    "formula": "Extracted from transratingwinter column, position 3, NULL if missing"
+  },
+  "Trans4_Winter": {
+    "description": "Winter rating for transformer 4",
+    "formula": "Extracted from transratingwinter column, position 4, NULL if missing"
+  },
+  "Trans5_Summer": {
+    "description": "Summer rating for transformer 5",
+    "formula": "Extracted from transratingsummer column, position 5, NULL if missing"
+  },
+  "Trans5_Winter": {
+    "description": "Winter rating for transformer 5",
+    "formula": "Extracted from transratingwinter column, position 5, NULL if missing"
+  },
+  "Trans6_Summer": {
+    "description": "Summer rating for transformer 6",
+    "formula": "Extracted from transratingsummer column, position 6, NULL if missing"
+  },
+  "Trans6_Winter": {
+    "description": "Winter rating for transformer 6",
+    "formula": "Extracted from transratingwinter column, position 6, NULL if missing"
+  },
+  "Trans7_Summer": {
+    "description": "Summer rating for transformer 7",
+    "formula": "Extracted from transratingsummer column, position 7, NULL if missing"
+  },
+  "Trans8_Summer": {
+    "description": "Summer rating for transformer 8",
+    "formula": "Extracted from transratingsummer column, position 8, NULL if missing"
+  },
+  "Trans7_Winter": {
+    "description": "Winter rating for transformer 7",
+    "formula": "Extracted from transratingwinter column, position 7, NULL if missing"
+  },
+  "Trans8_Winter": {
+    "description": "Winter rating for transformer 8",
+    "formula": "Extracted from transratingwinter column, position 8, NULL if missing"
+  },
+  "Total Gen <1 (MW)": {
+    "description": "Total generation capacity under 1MW",
+    "formula": "ECR < 1MVA Already connected + ECR < 1MVA Accepted to connect"
+  },
+  "Total Gen >1 (MW)": {
+    "description": "Total generation capacity over 1MW",
+    "formula": "ECR > 1MVA Already connected + ECR > 1MVA Accepted to connect"
+  },
+  "Total_ECR_Capacity": {
+    "description": "Total ECR capacity",
+    "formula": "Total Gen <1 (MW) + Total Gen >1 (MW)"
+  },
+  "Generation_Headroom_MW": {
+    "description": "Generation headroom calculation",
+    "formula": "Generation_Capacity - (ECR > 1MVA Already connected + ECR > 1MVA Accepted to connect + ECR < 1MVA Already connected + ECR < 1MVA Accepted to connect)"
+  },
+  "Deviation_Percentage": {
+    "description": "Percentage deviation between Installed Capacity MVA and Max Total Gen",
+    "formula": "|installedcapacity_mva - MAX(Total Gen <1 (MW), Total Gen >1 (MW))| / installedcapacity_mva * 100"
+  },
+  "Deviation": {
+    "description": "Deviation flag (Yes if >5%, No if <=5%)",
+    "formula": "Yes if Deviation_Percentage > 5%, else No"
+  }
+}
