@@ -14,6 +14,31 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
+// Function to determine marker color based on generation headroom
+const getMarkerColor = (headroom) => {
+  if (headroom === null || headroom === undefined) {
+    return "#808080"; // Gray for unknown values
+  }
+
+  if (headroom >= 50) {
+    return "#008000"; // Green for 50MW and greater
+  } else if (headroom >= 20) {
+    return "#FFA500"; // Amber for 20MW to 50MW
+  } else {
+    return "#FF0000"; // Red for less than 20MW
+  }
+};
+
+// Custom marker icon component
+const createMarkerIcon = (color) => {
+  return L.divIcon({
+    className: "custom-icon",
+    html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+};
+
 const LeafletMap = () => {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +64,8 @@ const LeafletMap = () => {
           siteType: site.site_type,
           siteVoltage: site.site_voltage,
           county: site.county,
+          generationHeadroom: site.generation_headroom,
+          color: getMarkerColor(site.generation_headroom),
         }));
 
         setMarkers(transformedMarkers);
@@ -51,26 +78,19 @@ const LeafletMap = () => {
             id: 1,
             position: [52.0686, 0.6054],
             popupText: "Belchamp Grid Substation",
+            color: "#008000", // Green
           },
           {
             id: 2,
             position: [52.3727, 1.1056],
             popupText: "Diss Grid Substation",
+            color: "#FFA500", // Amber
           },
           {
             id: 3,
             position: [51.8259, 1.1794],
             popupText: "Clacton Grid Substation",
-          },
-          {
-            id: 4,
-            position: [51.8779, 0.9301],
-            popupText: "Colchester Grid Substation",
-          },
-          {
-            id: 5,
-            position: [51.716, 0.5185],
-            popupText: "Chelmsford East Grid Substation",
+            color: "#FF0000", // Red
           },
         ];
         setMarkers(sampleMarkers);
@@ -126,15 +146,64 @@ const LeafletMap = () => {
     );
   }
 
+  // Count markers by color category
+  const greenMarkers = markers.filter(
+    (marker) => marker.color === "#008000"
+  ).length;
+  const amberMarkers = markers.filter(
+    (marker) => marker.color === "#FFA500"
+  ).length;
+  const redMarkers = markers.filter(
+    (marker) => marker.color === "#FF0000"
+  ).length;
+  const grayMarkers = markers.filter(
+    (marker) => marker.color === "#808080"
+  ).length;
+
   return (
     <div className="w-full h-full">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">
-          Grid Substations Map
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">
+              Grid Substations Map
+            </h2>
+            <p className="text-gray-600">
+              Displaying {markers.length} electrical grid substations
+            </p>
+          </div>
+          <div className="bg-blue-100 px-3 py-1 rounded-full">
+            <span className="text-sm font-medium text-blue-800">
+              {markers.length} Sites
+            </span>
+          </div>
+        </div>
         <p className="text-gray-600 mb-4">
-          Locations of electrical grid substations
+          Locations of electrical grid substations. Color coding based on
+          Generation Headroom:
         </p>
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 mb-4">
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-green-600 rounded-full mr-2"></div>
+            <span className="text-sm">Green: ≥ 50MW ({greenMarkers})</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
+            <span className="text-sm">Amber: 20-50MW ({amberMarkers})</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-red-600 rounded-full mr-2"></div>
+            <span className="text-sm">Red: &lt; 20MW ({redMarkers})</span>
+          </div>
+          {grayMarkers > 0 && (
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-gray-500 rounded-full mr-2"></div>
+              <span className="text-sm">Gray: Unknown ({grayMarkers})</span>
+            </div>
+          )}
+        </div>
 
         <div className="relative w-full h-[500px] rounded-lg overflow-hidden border border-gray-300">
           <MapContainer
@@ -151,7 +220,11 @@ const LeafletMap = () => {
             />
 
             {markers.map((marker) => (
-              <Marker key={marker.id} position={marker.position}>
+              <Marker
+                key={marker.id}
+                position={marker.position}
+                icon={createMarkerIcon(marker.color)}
+              >
                 <Popup>
                   <div className="p-2">
                     <h3 className="font-bold text-lg mb-1">
@@ -161,6 +234,25 @@ const LeafletMap = () => {
                       Lat: {marker.position[0].toFixed(4)}, Lng:{" "}
                       {marker.position[1].toFixed(4)}
                     </p>
+                    {marker.generationHeadroom !== null &&
+                      marker.generationHeadroom !== undefined && (
+                        <p className="text-sm mt-1">
+                          <span className="font-medium">
+                            Generation Headroom:
+                          </span>{" "}
+                          <span
+                            className={
+                              marker.generationHeadroom >= 50
+                                ? "text-green-600"
+                                : marker.generationHeadroom >= 20
+                                ? "text-orange-500"
+                                : "text-red-600"
+                            }
+                          >
+                            {marker.generationHeadroom} MW
+                          </span>
+                        </p>
+                      )}
                     <p className="text-xs mt-2 text-gray-500">
                       Click anywhere else to add more markers
                     </p>

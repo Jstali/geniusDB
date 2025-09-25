@@ -1,12 +1,21 @@
 import React from "react";
+import LeafletMap from "./LeafletMap";
 
 const MapView = () => {
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-4">Map View</h2>
-      <p>Map view content goes here</p>
-      <div className="mt-4 bg-gray-200 border-2 border-dashed rounded-xl w-full h-96 flex items-center justify-center">
-        <span className="text-gray-500">Map Visualization Area</span>
+      <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">
+          Map Overview
+        </h3>
+        <p className="text-gray-600">
+          This map displays the locations of all electrical grid substations.
+          Each marker represents a substation with its spatial coordinates.
+        </p>
+      </div>
+      <div className="mt-4">
+        <LeafletMap />
       </div>
     </div>
   );

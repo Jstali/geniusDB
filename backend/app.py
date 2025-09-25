@@ -99,6 +99,11 @@ def get_map_data():
                     if pd.isna(county):
                         county = 'Unknown'
                     
+                    # Get Generation Headroom Mw value
+                    generation_headroom = row.get('Generation Headroom Mw', None)
+                    if pd.isna(generation_headroom):
+                        generation_headroom = None
+                    
                     map_data.append({
                         "id": index,
                         "position": [lat, lng],
@@ -106,6 +111,7 @@ def get_map_data():
                         "site_type": site_type,
                         "site_voltage": site_voltage,
                         "county": county,
+                        "generation_headroom": generation_headroom,
                         "popup_text": f"{site_name} ({site_type})"
                     })
             except (ValueError, IndexError):

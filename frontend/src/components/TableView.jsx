@@ -1,21 +1,94 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Box,
+  Container,
+  Typography,
+  CircularProgress,
+  Alert,
+  AlertTitle,
+  Paper,
+  Drawer,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
+} from "@mui/material";
+import {
+  FilterList as FilterListIcon,
+  Close as CloseIcon,
+} from "@mui/icons-material";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 import DataTable from "./DataTable";
 
-const TableView = () => {
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: "#1976d2",
+    },
+    secondary: {
+      main: "#dc004e",
+    },
+  },
+});
+
+// Add prop for updating table data in Dashboard
+const TableView = ({ updateTableData }) => {
+  console.log(
+    "TableView: Component initialized with updateTableData:",
+    !!updateTableData
+  );
+
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("table"); // 'table' or 'list'
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [filters, setFilters] = useState({});
+  const isFetching = useRef(false); // Prevent multiple fetches
+
+  // Generate columns dynamically from the data with consistent keys
+  const generateColumns = (data) => {
+    console.log("TableView: generateColumns called with data:", data);
+    if (!data || data.length === 0) {
+      console.log("TableView: generateColumns returning empty array - no data");
+      return [];
+    }
+
+    const columns = Object.keys(data[0]).map((key) => ({
+      accessorKey: key,
+      header: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
+    }));
+    console.log("TableView: generateColumns returning:", columns);
+    return columns;
+  };
 
   useEffect(() => {
+    console.log(
+      "TableView: useEffect triggered, isFetching:",
+      isFetching.current
+    );
+
+    // Prevent multiple fetches
+    if (isFetching.current) {
+      console.log("TableView: Data fetch already in progress, skipping");
+      return;
+    }
+
     const fetchData = async () => {
       try {
+        isFetching.current = true;
         setLoading(true);
+        console.log("TableView: Starting data fetch...");
 
         // First, trigger the data processing script
         const processResponse = await fetch(
           "http://localhost:8000/process/transformers"
+        );
+        console.log(
+          "TableView: Process response status:",
+          processResponse.status
         );
         if (!processResponse.ok) {
           throw new Error(
@@ -23,172 +96,237 @@ const TableView = () => {
           );
         }
         const processResult = await processResponse.json();
+        console.log("TableView: Process result:", processResult);
         if (processResult.status === "error") {
           throw new Error(processResult.message);
         }
 
         // Then fetch the transformer data from the backend API
         const response = await fetch("http://localhost:8000/data/transformers");
+        console.log("TableView: Data response status:", response.status);
         if (!response.ok) {
           throw new Error(
             `HTTP error while fetching data! status: ${response.status}`
           );
         }
         const jsonData = await response.json();
+        console.log("TableView: Received data:", jsonData);
 
         // Set the transformer data directly
         setData(jsonData);
+        // Generate columns and pass both data and columns to Dashboard
+        const generatedColumns = generateColumns(jsonData);
+        console.log("TableView: Generated columns:", generatedColumns);
+        if (updateTableData) {
+          console.log(
+            "TableView: Calling updateTableData with data and columns"
+          );
+          updateTableData(jsonData, generatedColumns);
+        }
+        console.log("TableView: Data fetch completed successfully");
       } catch (err) {
         setError("Failed to fetch data from backend: " + err.message);
-        console.error("Error fetching data:", err);
+        console.error("TableView: Error fetching data:", err);
+        console.error("TableView: Error stack:", err.stack);
       } finally {
+        isFetching.current = false;
+        console.log("TableView: Setting loading to false");
         setLoading(false);
+        console.log("TableView: Loading state set to false");
       }
     };
 
     fetchData();
-  }, []);
 
-  // Generate columns dynamically from the data
-  const columns =
-    data.length > 0
-      ? Object.keys(data[0]).map((key) => ({
-          accessorKey: key,
-          header: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
-          cell: (info) => {
-            const value = info.getValue();
-            // Handle special cases for better display
-            if (value === null || value === undefined) {
-              return "";
-            }
-            if (typeof value === "object") {
-              return JSON.stringify(value);
-            }
-            return String(value);
-          },
-        }))
-      : [];
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isFetching.current = false;
+    };
+  }, [updateTableData]);
+
+  // Generate columns dynamically from the data with consistent keys
+  const columns = React.useMemo(() => {
+    console.log("TableView: useMemo columns called with data:", data);
+    const result = generateColumns(data);
+    console.log("TableView: useMemo columns returning:", result);
+    return result;
+  }, [data]);
+
+  const toggleDrawer = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+
+  const handleFilterChange = (column, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [column]: value,
+    }));
+  };
+
+  const filteredData = React.useMemo(() => {
+    if (Object.keys(filters).length === 0) return data;
+
+    return data.filter((row) => {
+      return Object.entries(filters).every(([column, value]) => {
+        if (!value || value === "all") return true;
+        return row[column] === value;
+      });
+    });
+  }, [data, filters]);
+
+  const renderFilterDrawer = () => (
+    <Drawer
+      anchor="right"
+      open={drawerOpen}
+      onClose={toggleDrawer}
+      sx={{
+        "& .MuiDrawer-paper": {
+          width: 300,
+          p: 2,
+        },
+      }}
+    >
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+        <Typography variant="h6">Filters</Typography>
+        <IconButton onClick={toggleDrawer} size="small">
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {columns.slice(0, 5).map((column) => {
+          // Get unique values for this column
+          const uniqueValues = [
+            ...new Set(data.map((row) => row[column.accessorKey])),
+          ].filter((val) => val !== null && val !== undefined && val !== "");
+
+          return (
+            <FormControl key={column.accessorKey} fullWidth size="small">
+              <InputLabel>{column.header}</InputLabel>
+              <Select
+                value={filters[column.accessorKey] || "all"}
+                label={column.header}
+                onChange={(e) =>
+                  handleFilterChange(column.accessorKey, e.target.value)
+                }
+              >
+                <MenuItem value="all">All</MenuItem>
+                {uniqueValues.slice(0, 10).map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {String(value).length > 30
+                      ? String(value).substring(0, 30) + "..."
+                      : String(value)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          );
+        })}
+
+        <Button
+          variant="outlined"
+          onClick={() => setFilters({})}
+          sx={{ mt: 2 }}
+        >
+          Clear All Filters
+        </Button>
+      </Box>
+    </Drawer>
+  );
 
   if (loading) {
+    console.log("TableView: Rendering loading state");
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-bold mb-4">Table View</h2>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      </div>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Transformer Data
+          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: 400,
+            }}
+          >
+            <CircularProgress size={60} />
+          </Box>
+        </Container>
+      </ThemeProvider>
     );
   }
 
   if (error) {
+    console.log("TableView: Rendering error state", error);
     return (
-      <div className="p-6">
-        <h2 className="text-2xl font-bold mb-4">Table View</h2>
-        <div
-          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-          role="alert"
-        >
-          <strong className="font-bold">Error! </strong>
-          <span className="block sm:inline">{error}</span>
-        </div>
-      </div>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Transformer Data
+          </Typography>
+          <Alert severity="error">
+            <AlertTitle>Error!</AlertTitle>
+            {error}
+          </Alert>
+        </Container>
+      </ThemeProvider>
     );
   }
 
+  console.log("TableView: Rendering main content", {
+    dataLength: data.length,
+    filteredDataLength: filteredData.length,
+    columnsLength: columns.length,
+  });
+
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-4">Transformer Data</h2>
-      <p className="text-gray-600 mb-4">
-        Data from grid_and_primary_calculated.py processing
-      </p>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Transformer Data
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<FilterListIcon />}
+            onClick={toggleDrawer}
+            sx={{ height: "fit-content" }}
+          >
+            Filters
+          </Button>
+        </Box>
 
-      {/* Tab Navigation */}
-      <div className="flex border-b border-gray-200 mb-4">
-        <button
-          className={`px-4 py-2 font-medium text-sm ${
-            activeTab === "table"
-              ? "border-b-2 border-indigo-500 text-indigo-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-          onClick={() => setActiveTab("table")}
-        >
-          Table View
-        </button>
-        <button
-          className={`px-4 py-2 font-medium text-sm ${
-            activeTab === "list"
-              ? "border-b-2 border-indigo-500 text-indigo-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-          onClick={() => setActiveTab("list")}
-        >
-          List View
-        </button>
-      </div>
-
-      {/* Main Content Area with Table/List and Filter Panel */}
-      <div className="flex">
-        {/* Main Content (Table or List) */}
-        <div className="flex-1">
-          {data.length > 0 ? (
+        {/* Table View Content */}
+        <Box sx={{ mb: 3 }}>
+          {console.log("TableView: Rendering table content", {
+            dataLength: data.length,
+            filteredDataLength: filteredData.length,
+            columnsLength: columns.length,
+          })}
+          {filteredData.length > 0 ? (
+            <DataTable data={filteredData} columns={columns} />
+          ) : data.length > 0 ? (
+            // If filteredData is empty but we have data, show all data
             <DataTable data={data} columns={columns} />
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              No data available.
-            </div>
+            <Paper sx={{ p: 4, textAlign: "center" }}>
+              <Typography variant="h6" color="text.secondary">
+                No data available.
+              </Typography>
+            </Paper>
           )}
-        </div>
+        </Box>
 
-        {/* Right Side Panel with Filter Button */}
-        <div className="w-64 pl-6" style={{ paddingTop: "16px" }}>
-          {/* Filter Button */}
-          <div className="mb-4">
-            <button
-              onClick={() => setShowFilterPanel(!showFilterPanel)}
-              className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-700 transition-colors duration-200"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {showFilterPanel ? "Hide Filters" : "Show Filters"}
-            </button>
-          </div>
-
-          {/* Vertical Filter Panel */}
-          {showFilterPanel && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-              <h3 className="text-lg font-semibold mb-3">Filters</h3>
-              <p className="text-gray-600 text-sm mb-4">
-                Filter options would appear here when implemented
-              </p>
-              <div className="space-y-3">
-                {columns.slice(0, 5).map((column) => (
-                  <div key={column.accessorKey}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      {column.header}
-                    </label>
-                    <select className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
-                      <option value="">All</option>
-                      <option value="option1">Option 1</option>
-                      <option value="option2">Option 2</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+        {/* Filter Drawer */}
+        {renderFilterDrawer()}
+      </Container>
+    </ThemeProvider>
   );
 };
 

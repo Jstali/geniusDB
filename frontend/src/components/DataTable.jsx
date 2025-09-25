@@ -9,35 +9,133 @@ import {
 } from "@tanstack/react-table";
 
 const DataTable = ({ data, columns }) => {
+  console.log("DataTable: Component called with props", {
+    data: data ? `Array with ${data.length} items` : "null/undefined",
+    columns: columns ? `Array with ${columns.length} items` : "null/undefined",
+  });
+
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
+  const [columnVisibility, setColumnVisibility] = useState({});
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 100,
+    pageSize: 10,
   });
+  const [columnSizes, setColumnSizes] = useState({});
+  const [isResizing, setIsResizing] = useState(null);
+  const tableRef = useRef(null);
 
   // State for dropdown filters
   const [openDropdowns, setOpenDropdowns] = useState({});
   const [columnMultiSelectValues, setColumnMultiSelectValues] = useState({});
+  const [showColumnToggle, setShowColumnToggle] = useState(false);
   const dropdownRefs = useRef({});
+  const columnToggleRef = useRef(null);
+
+  // Set equal initial column sizes (Excel-like)
+  const DEFAULT_COLUMN_WIDTH = 150;
+  const MIN_COLUMN_WIDTH = 50;
+  const MAX_COLUMN_WIDTH = 800;
+
+  // Initialize all columns with equal width
+  useEffect(() => {
+    console.log("DataTable: useEffect for column sizes called", columns);
+    if (columns && columns.length > 0) {
+      const initialSizes = {};
+      columns.forEach((col) => {
+        if (col.accessorKey) {
+          initialSizes[col.accessorKey] = DEFAULT_COLUMN_WIDTH;
+        }
+      });
+      console.log("DataTable: Setting initial column sizes", initialSizes);
+      setColumnSizes(initialSizes);
+    }
+  }, [columns]);
+
+  // Error handling for missing data
+  if (!data) {
+    console.log("DataTable: No data provided");
+    return (
+      <div className="rounded-lg shadow-sm bg-white p-8 text-center border">
+        <div className="text-red-600 text-lg font-semibold mb-2">
+          No Data Available
+        </div>
+        <p className="text-gray-500">
+          Unable to load table data. Please try again later.
+        </p>
+        <p className="text-gray-400 text-sm mt-2">Data is null or undefined</p>
+      </div>
+    );
+  }
+
+  if (!columns) {
+    console.log("DataTable: No columns provided");
+    return (
+      <div className="rounded-lg shadow-sm bg-white p-8 text-center border">
+        <div className="text-red-600 text-lg font-semibold mb-2">
+          No Columns Available
+        </div>
+        <p className="text-gray-500">
+          Unable to load table columns. Please try again later.
+        </p>
+        <p className="text-gray-400 text-sm mt-2">
+          Columns is null or undefined
+        </p>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    console.log("DataTable: Empty data array");
+    return (
+      <div className="rounded-lg shadow-sm bg-white p-8 text-center border">
+        <div className="text-red-600 text-lg font-semibold mb-2">
+          No Data Available
+        </div>
+        <p className="text-gray-500">The data array is empty.</p>
+        <p className="text-gray-400 text-sm mt-2">Data array has 0 items</p>
+      </div>
+    );
+  }
+
+  if (columns.length === 0) {
+    console.log("DataTable: Empty columns array");
+    return (
+      <div className="rounded-lg shadow-sm bg-white p-8 text-center border">
+        <div className="text-red-600 text-lg font-semibold mb-2">
+          No Columns Available
+        </div>
+        <p className="text-gray-500">The columns array is empty.</p>
+        <p className="text-gray-400 text-sm mt-2">Columns array has 0 items</p>
+      </div>
+    );
+  }
+
+  console.log("DataTable: Creating table with", {
+    dataLength: data.length,
+    columnsLength: columns.length,
+  });
 
   const table = useReactTable({
     data,
     columns: columns.map((col) => ({
       ...col,
       filterFn: col.accessorKey ? "multiSelect" : undefined,
+      size: DEFAULT_COLUMN_WIDTH, // Set default size for TanStack table
     })),
     state: {
       columnFilters,
       globalFilter,
       sorting,
       pagination,
+      columnVisibility,
     },
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -46,9 +144,18 @@ const DataTable = ({ data, columns }) => {
       multiSelect: (row, columnId, filterValues) => {
         if (!filterValues || filterValues.length === 0) return true;
         const cellValue = row.getValue(columnId);
-        return filterValues.includes(cellValue);
+        // Handle different data types
+        if (Array.isArray(filterValues)) {
+          return filterValues.some((val) =>
+            String(cellValue).toLowerCase().includes(String(val).toLowerCase())
+          );
+        }
+        return String(cellValue)
+          .toLowerCase()
+          .includes(String(filterValues).toLowerCase());
       },
     },
+    columnResizeMode: "onChange",
     debugTable: false,
   });
 
@@ -58,7 +165,15 @@ const DataTable = ({ data, columns }) => {
     columns.forEach((column) => {
       if (column.accessorKey) {
         const uniqueValues = [
-          ...new Set(data.map((row) => row[column.accessorKey])),
+          ...new Set(
+            data.map((row) => {
+              const value = row[column.accessorKey];
+              // Handle different data types
+              if (value === null || value === undefined) return "";
+              if (typeof value === "object") return JSON.stringify(value);
+              return String(value);
+            })
+          ),
         ];
         options[column.accessorKey] = uniqueValues
           .filter((val) => val !== null && val !== undefined && val !== "")
@@ -68,6 +183,51 @@ const DataTable = ({ data, columns }) => {
     });
     return options;
   }, [data, columns]);
+
+  // Export to CSV function
+  const exportToCSV = () => {
+    const visibleColumns = table.getVisibleLeafColumns();
+    const rows = table.getFilteredRowModel().rows;
+
+    // Create CSV header
+    const header = visibleColumns.map((col) => col.columnDef.header).join(",");
+
+    // Create CSV body
+    const csvBody = rows
+      .map((row) =>
+        visibleColumns
+          .map((col) => {
+            const cellValue = row.getValue(col.id);
+            // Escape commas and quotes in CSV
+            const stringValue = String(cellValue || "");
+            if (
+              stringValue.includes(",") ||
+              stringValue.includes('"') ||
+              stringValue.includes("\n")
+            ) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+          })
+          .join(",")
+      )
+      .join("\n");
+
+    const csvContent = header + "\n" + csvBody;
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", "data.csv");
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   // Handle clicking outside dropdowns to close them
   useEffect(() => {
@@ -80,6 +240,13 @@ const DataTable = ({ data, columns }) => {
           setOpenDropdowns((prev) => ({ ...prev, [columnId]: false }));
         }
       });
+
+      if (
+        columnToggleRef.current &&
+        !columnToggleRef.current.contains(event.target)
+      ) {
+        setShowColumnToggle(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -87,6 +254,35 @@ const DataTable = ({ data, columns }) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // Handle mouse events for column resizing
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+
+      setColumnSizes((prev) => ({
+        ...prev,
+        [isResizing]: Math.min(
+          MAX_COLUMN_WIDTH,
+          Math.max(MIN_COLUMN_WIDTH, prev[isResizing] + e.movementX)
+        ),
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(null);
+    };
+
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
 
   // Toggle dropdown visibility
   const toggleDropdown = (columnId) => {
@@ -104,49 +300,35 @@ const DataTable = ({ data, columns }) => {
 
       if (value === "SELECT_ALL") {
         if (isChecked) {
+          // Select all values
           newValues = [...getColumnFilterOptions[columnId]];
         } else {
+          // Deselect all values
           newValues = [];
         }
       } else {
         if (isChecked) {
+          // Add value to selection
           newValues = [...currentValues, value];
         } else {
+          // Remove value from selection
           newValues = currentValues.filter((v) => v !== value);
         }
       }
+
+      // Update column filters immediately with the new values
+      setColumnFilters((prevFilters) => {
+        const otherFilters = prevFilters.filter((f) => f.id !== columnId);
+
+        // Only apply filter if we have selected values
+        if (newValues.length === 0) {
+          return otherFilters; // No filter if nothing selected
+        }
+
+        return [...otherFilters, { id: columnId, value: newValues }];
+      });
 
       return { ...prev, [columnId]: newValues };
-    });
-
-    // Update column filters
-    setColumnFilters((prev) => {
-      const otherFilters = prev.filter((f) => f.id !== columnId);
-      const currentValues = columnMultiSelectValues[columnId] || [];
-      let newValues;
-
-      if (value === "SELECT_ALL") {
-        if (isChecked) {
-          newValues = [...getColumnFilterOptions[columnId]];
-        } else {
-          newValues = [];
-        }
-      } else {
-        if (isChecked) {
-          newValues = [...currentValues, value];
-        } else {
-          newValues = currentValues.filter((v) => v !== value);
-        }
-      }
-
-      if (
-        newValues.length === 0 ||
-        newValues.length === getColumnFilterOptions[columnId]?.length
-      ) {
-        return otherFilters;
-      }
-
-      return [...otherFilters, { id: columnId, value: newValues }];
     });
   };
 
@@ -164,76 +346,146 @@ const DataTable = ({ data, columns }) => {
     setColumnMultiSelectValues((prev) => ({ ...prev, [columnId]: [] }));
   };
 
-  // Error handling for missing data
-  if (!data || !columns || data.length === 0) {
-    return (
-      <div className="rounded-lg shadow-lg bg-white p-8 text-center">
-        <div className="text-red-500 text-lg font-semibold mb-2">
-          ⚠️ Error: Server is down
-        </div>
-        <p className="text-gray-600">
-          Unable to load table data. Please try again later.
-        </p>
-      </div>
-    );
-  }
+  // Calculate column size with fallback to default width
+  const getColumnSize = (columnId) => {
+    // If we have a specific size for this column, use it
+    if (columnSizes[columnId]) {
+      return columnSizes[columnId];
+    }
+
+    // Otherwise, use default width for all columns
+    return DEFAULT_COLUMN_WIDTH;
+  };
 
   return (
-    <div className="rounded-lg shadow-lg bg-white p-4 w-full">
-      {/* Global Filter and Controls */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex-1 max-w-md">
+    <div className="w-full">
+      {/* Toolbar */}
+      <div className="mb-4 flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-lg border shadow-sm">
+        {/* Left side - Search */}
+        <div className="flex-1 min-w-64">
           <div className="relative">
             <input
               type="text"
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search entire table..."
-              className="block w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pl-10"
+              placeholder="Search all columns..."
+              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 absolute left-3 top-3 text-gray-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+              className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
               <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-600 font-medium">
-            **Showing {table.getFilteredRowModel().rows.length} total rows**
-          </span>
+
+        {/* Right side - Action buttons */}
+        <div className="flex items-center gap-2">
+          {/* Column Visibility Toggle */}
+          <div className="relative" ref={columnToggleRef}>
+            <button
+              onClick={() => setShowColumnToggle(!showColumnToggle)}
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <svg
+                className="w-4 h-4 mr-2 inline-block"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2z"
+                />
+              </svg>
+              Columns
+            </button>
+
+            {showColumnToggle && (
+              <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                <div className="p-2 max-h-60 overflow-y-auto">
+                  <div className="pb-2 border-b border-gray-200 mb-2">
+                    <p className="text-sm font-medium text-gray-700">
+                      Toggle Columns
+                    </p>
+                  </div>
+                  {table.getAllLeafColumns().map((column) => (
+                    <label
+                      key={column.id}
+                      className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={column.getIsVisible()}
+                        onChange={column.getToggleVisibilityHandler()}
+                        className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {column.columnDef.header}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Export CSV Button */}
           <button
-            onClick={clearAllFilters}
-            className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors duration-200 font-medium"
+            onClick={exportToCSV}
+            className="px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
           >
-            Clear All Filters
+            <svg
+              className="w-4 h-4 mr-2 inline-block"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            Export CSV
           </button>
+
+          {/* Clear Filters Button */}
+          {(columnFilters.length > 0 || globalFilter) && (
+            <button
+              onClick={clearAllFilters}
+              className="px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Active Filters Display */}
+      {/* Active Filters */}
       {(columnFilters.length > 0 || globalFilter) && (
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-blue-800">
               Active Filters:
             </span>
             {globalFilter && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                <span className="font-medium">Global:</span>
-                <span className="ml-1 truncate max-w-[80px]">
-                  {globalFilter}
-                </span>
+                Global: {globalFilter}
                 <button
                   onClick={() => setGlobalFilter("")}
-                  className="ml-2 text-purple-600 hover:text-purple-800"
+                  className="ml-1 text-purple-600 hover:text-purple-800"
                 >
                   ×
                 </button>
@@ -251,13 +503,10 @@ const DataTable = ({ data, columns }) => {
                   key={filter.id}
                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                 >
-                  <span className="font-medium truncate max-w-[80px]">
-                    {column?.header}:
-                  </span>
-                  <span className="ml-1">{filterValueCount} selected</span>
+                  {column?.header}: {filterValueCount} selected
                   <button
                     onClick={() => clearColumnFilter(filter.id)}
-                    className="ml-2 text-blue-600 hover:text-blue-800"
+                    className="ml-1 text-blue-600 hover:text-blue-800"
                   >
                     ×
                   </button>
@@ -268,114 +517,112 @@ const DataTable = ({ data, columns }) => {
         </div>
       )}
 
-      {/* Table Content with Horizontal Scroll */}
-      <div
-        className="overflow-auto rounded-lg border border-gray-200"
-        style={{ maxHeight: "600px" }}
-      >
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 sticky top-0 z-10">
-            {/* Column Headers */}
-            <tr>
-              {table.getHeaderGroups()[0].headers.map((header) => {
-                const sortDirection = header.column.getIsSorted();
-                const columnId = header.column.columnDef.accessorKey;
-                const hasFilter = columnFilters.some((f) => f.id === columnId);
+      {/* Table */}
+      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200" ref={tableRef}>
+            <thead className="bg-blue-600">
+              <tr>
+                {table.getHeaderGroups()[0].headers.map((header) => {
+                  const columnId = header.column.columnDef.accessorKey;
+                  const hasFilter = columnFilters.some(
+                    (f) => f.id === columnId
+                  );
+                  const sortDirection = header.column.getIsSorted();
+                  // Use consistent column sizing
+                  const columnSize = getColumnSize(columnId);
 
-                return (
-                  <th
-                    key={header.id}
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 last:border-r-0 min-w-[200px] relative"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div
-                        className="flex items-center cursor-pointer hover:text-gray-700 flex-1"
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        <span className="truncate mr-2">
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
+                  return (
+                    <th
+                      key={header.id}
+                      className="text-left text-xs font-medium text-white uppercase tracking-wider border-r border-blue-700 last:border-r-0 relative"
+                      style={{
+                        width: `${columnSize}px`,
+                        minWidth: `${MIN_COLUMN_WIDTH}px`,
+                        maxWidth: `${MAX_COLUMN_WIDTH}px`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between h-full">
+                        <div
+                          className="flex items-center cursor-pointer hover:text-blue-200 px-4 py-3 flex-1"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          <span className="mr-2 truncate">
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                          </span>
+                          {sortDirection === "asc" && (
+                            <span className="text-blue-200">↑</span>
                           )}
-                        </span>
-                        <span>
-                          {sortDirection === "asc" ? (
-                            <span className="text-blue-600">↑</span>
-                          ) : sortDirection === "desc" ? (
-                            <span className="text-blue-600">↓</span>
-                          ) : (
-                            <span className="text-gray-300">↕</span>
+                          {sortDirection === "desc" && (
+                            <span className="text-blue-200">↓</span>
                           )}
-                        </span>
+                          {!sortDirection && (
+                            <span className="text-blue-300">↕</span>
+                          )}
+                        </div>
+
+                        {/* Resize Handle */}
+                        <div
+                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 hover:bg-blue-300 opacity-0 hover:opacity-100 transition-opacity"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsResizing(columnId);
+                          }}
+                        />
                       </div>
 
-                      {/* Filter Button */}
+                      {/* Filter Button - moved to second row */}
                       {columnId && (
-                        <div
-                          className="relative"
-                          ref={(el) => (dropdownRefs.current[columnId] = el)}
-                        >
-                          <button
-                            onClick={() => toggleDropdown(columnId)}
-                            className={`ml-2 p-1 rounded hover:bg-gray-200 transition-colors ${
-                              hasFilter
-                                ? "text-blue-600 bg-blue-100"
-                                : "text-gray-400"
-                            }`}
+                        <div className="absolute right-2 bottom-2">
+                          <div
+                            className="relative"
+                            ref={(el) => (dropdownRefs.current[columnId] = el)}
                           >
-                            <svg
-                              className="w-4 h-4"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
+                            <button
+                              onClick={() => toggleDropdown(columnId)}
+                              className={`p-1 rounded hover:bg-blue-500 transition-colors ${
+                                hasFilter
+                                  ? "text-blue-200 bg-blue-700"
+                                  : "text-blue-300"
+                              }`}
                             >
-                              <path
-                                fillRule="evenodd"
-                                d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                className="w-4 h-4"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
 
-                          {/* Filter Dropdown */}
-                          {openDropdowns[columnId] && (
-                            <div className="absolute top-full right-0 mt-1 w-80 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-80 overflow-hidden">
-                              <div className="p-3 border-b border-gray-200 bg-gray-50">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium text-sm text-gray-700">
-                                    Filter {header.column.columnDef.header}
-                                  </span>
-                                  <button
-                                    onClick={() => toggleDropdown(columnId)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-                              </div>
+                            {/* Filter Dropdown */}
+                            {openDropdowns[columnId] && (
+                              <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                                <div className="p-2">
+                                  <div className="pb-2 border-b border-gray-200 mb-2">
+                                    <p className="text-sm font-medium text-gray-700">
+                                      Filter by {header.column.columnDef.header}
+                                    </p>
+                                  </div>
 
-                              <div className="p-2">
-                                {/* Search within filter options */}
-                                <div className="mb-2">
-                                  <input
-                                    type="text"
-                                    placeholder="Search..."
-                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-
-                                <div className="max-h-60 overflow-y-auto">
-                                  {/* Select All option */}
+                                  {/* Select All Option */}
                                   <label className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={
-                                        !columnMultiSelectValues[columnId] ||
                                         columnMultiSelectValues[columnId]
-                                          .length === 0 ||
-                                        columnMultiSelectValues[columnId]
-                                          .length ===
+                                          ?.length ===
                                           getColumnFilterOptions[columnId]
-                                            ?.length
+                                            ?.length &&
+                                        getColumnFilterOptions[columnId]
+                                          ?.length > 0
                                       }
                                       onChange={(e) =>
                                         handleMultiSelectChange(
@@ -384,250 +631,165 @@ const DataTable = ({ data, columns }) => {
                                           e.target.checked
                                         )
                                       }
-                                      className="mr-2 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                      className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span className="text-sm font-medium text-blue-600">
-                                      (Select All)
+                                    <span className="text-sm text-gray-700">
+                                      Select All
                                     </span>
                                   </label>
 
-                                  {/* Individual options */}
+                                  {/* Filter Options */}
                                   {getColumnFilterOptions[columnId]?.map(
-                                    (option, idx) => {
-                                      const isSelected =
-                                        columnMultiSelectValues[
-                                          columnId
-                                        ]?.includes(option) ||
-                                        !columnMultiSelectValues[columnId] ||
-                                        columnMultiSelectValues[columnId]
-                                          .length === 0;
-
-                                      return (
-                                        <label
-                                          key={idx}
-                                          className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={(e) =>
-                                              handleMultiSelectChange(
-                                                columnId,
-                                                option,
-                                                e.target.checked
-                                              )
-                                            }
-                                            className="mr-2 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                          />
-                                          <span className="text-xs text-gray-700 truncate">
-                                            {String(option).length > 30
-                                              ? String(option).substring(
-                                                  0,
-                                                  30
-                                                ) + "..."
-                                              : String(option) || "(Empty)"}
-                                          </span>
-                                        </label>
-                                      );
-                                    }
+                                    (value) => (
+                                      <label
+                                        key={value}
+                                        className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={columnMultiSelectValues[
+                                            columnId
+                                          ]?.includes(value)}
+                                          onChange={(e) =>
+                                            handleMultiSelectChange(
+                                              columnId,
+                                              value,
+                                              e.target.checked
+                                            )
+                                          }
+                                          className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-gray-700 truncate">
+                                          {value}
+                                        </span>
+                                      </label>
+                                    )
                                   )}
                                 </div>
-
-                                {/* Filter Actions */}
-                                <div className="flex justify-between pt-2 mt-2 border-t border-gray-200">
-                                  <button
-                                    onClick={() => clearColumnFilter(columnId)}
-                                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                                  >
-                                    Clear
-                                  </button>
-                                  <button
-                                    onClick={() => toggleDropdown(columnId)}
-                                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                                  >
-                                    Apply
-                                  </button>
-                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       )}
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {table.getRowModel().rows.map((row, idx) => (
-              <tr
-                key={row.id}
-                className={`hover:bg-gray-50 transition-colors duration-150 ${
-                  idx % 2 === 0 ? "bg-white" : "bg-gray-25"
-                }`}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 border-r border-gray-100 last:border-r-0 min-w-[200px]"
-                  >
-                    <div className="truncate" title={String(cell.getValue())}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </div>
-                  </td>
-                ))}
+                    </th>
+                  );
+                })}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {table.getRowModel().rows.map((row, idx) => (
+                <tr
+                  key={row.id}
+                  className={`hover:bg-gray-50 ${
+                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  }`}
+                >
+                  {row.getVisibleCells().map((cell) => {
+                    const columnId = cell.column.columnDef.accessorKey;
+                    // Use consistent column sizing
+                    const columnSize = getColumnSize(columnId);
 
-      {/* Enhanced Pagination */}
-      <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 mt-4">
-        <div className="flex flex-1 justify-between sm:hidden">
-          <button
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <button
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
+                    return (
+                      <td
+                        key={cell.id}
+                        className="text-sm text-gray-900 border-r border-gray-100 last:border-r-0"
+                        style={{
+                          width: `${columnSize}px`,
+                          minWidth: `${MIN_COLUMN_WIDTH}px`,
+                          maxWidth: `${MAX_COLUMN_WIDTH}px`,
+                        }}
+                      >
+                        <div
+                          className="px-4 py-3 truncate"
+                          title={String(cell.getValue())}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Showing{" "}
-              <span className="font-medium">
-                {table.getState().pagination.pageIndex *
-                  table.getState().pagination.pageSize +
-                  1}
-              </span>{" "}
-              to{" "}
-              <span className="font-medium">
-                {Math.min(
-                  (table.getState().pagination.pageIndex + 1) *
-                    table.getState().pagination.pageSize,
-                  table.getFilteredRowModel().rows.length
-                )}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium">
-                {table.getFilteredRowModel().rows.length}
-              </span>{" "}
-              results
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
+
+        {/* Pagination */}
+        <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <p className="text-sm text-gray-700">
+                Showing{" "}
+                <span className="font-medium">
+                  {table.getState().pagination.pageIndex *
+                    table.getState().pagination.pageSize +
+                    1}
+                </span>{" "}
+                to{" "}
+                <span className="font-medium">
+                  {Math.min(
+                    (table.getState().pagination.pageIndex + 1) *
+                      table.getState().pagination.pageSize,
+                    table.getFilteredRowModel().rows.length
+                  )}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium">
+                  {table.getFilteredRowModel().rows.length}
+                </span>{" "}
+                results
+              </p>
+            </div>
             <div className="flex items-center space-x-2">
-              <label htmlFor="page-size" className="text-sm text-gray-700">
-                Show:
-              </label>
               <select
-                id="page-size"
                 value={table.getState().pagination.pageSize}
-                onChange={(e) => {
-                  table.setPageSize(Number(e.target.value));
-                }}
-                className="rounded-md border-gray-300 text-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                onChange={(e) => table.setPageSize(Number(e.target.value))}
+                className="rounded border-gray-300 text-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
               >
-                {[10, 20, 50, 100, 200].map((pageSize) => (
+                {[5, 10, 20, 30, 40, 50].map((pageSize) => (
                   <option key={pageSize} value={pageSize}>
-                    {pageSize}
+                    Show {pageSize}
                   </option>
                 ))}
               </select>
+              <div className="flex">
+                <button
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  ««
+                </button>
+                <button
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  ‹
+                </button>
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  Page {table.getState().pagination.pageIndex + 1} of{" "}
+                  {table.getPageCount()}
+                </span>
+                <button
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  »»
+                </button>
+              </div>
             </div>
-            <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
-              <button
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
-                className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="sr-only">First</span>
-                <svg
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M15.79 14.77a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L11.832 10l3.938 3.71a.75.75 0 01.02 1.06zm-6 0a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L5.832 10l3.938 3.71a.75.75 0 01.02 1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-                className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="sr-only">Previous</span>
-                <svg
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-
-              <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300">
-                {table.getState().pagination.pageIndex + 1} of{" "}
-                {table.getPageCount()}
-              </span>
-
-              <button
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-                className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="sr-only">Next</span>
-                <svg
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
-                className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="sr-only">Last</span>
-                <svg
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.21 5.23a.75.75 0 011.06-.02L9.832 10 5.894 14.29a.75.75 0 11-1.04-1.08L8.792 10 4.854 6.29a.75.75 0 01-.02-1.06zm6 0a.75.75 0 011.06-.02L15.832 10l-3.938 3.71a.75.75 0 11-1.04-1.08L14.792 10l-3.938-3.71a.75.75 0 01-.02-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </nav>
           </div>
         </div>
       </div>
