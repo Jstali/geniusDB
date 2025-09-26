@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import TableView from "../components/TableView";
 import MapViewComponent from "../components/MapViewComponent";
+import CompactMapViewComponent from "../components/CompactMapViewComponent";
 import CustomChartBuilder from "../components/CustomChartBuilder";
 
 const Dashboard = () => {
@@ -54,10 +55,25 @@ const Dashboard = () => {
 
     switch (activeTab) {
       case "Home":
+        console.log("Dashboard: Rendering Home tab");
         return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">Home</h2>
-            <p>Welcome to Genius DB Dashboard</p>
+          <div className="flex flex-col h-full p-6">
+            {/* Map View - Reduced width by 25% (from 65% to 50%), reduced height */}
+            <div className="w-full mb-6" style={{ height: "60%" }}>
+              {" "}
+              {/* Reduced from 80% to 60% to accommodate smaller map */}
+              <div
+                className="h-full"
+                style={{ width: "50%", margin: "0 auto" }} // Maintained at 50%
+              >
+                <CompactMapViewComponent />
+              </div>
+            </div>
+
+            {/* Table View - remaining space with scrolling */}
+            <div className="flex-grow overflow-auto">
+              <TableView updateTableData={updateTableData} />
+            </div>
           </div>
         );
       case "Summary":

@@ -7,6 +7,7 @@ import {
   getFilteredRowModel,
   flexRender,
 } from "@tanstack/react-table";
+import ResizableTable from "./ResizableTable";
 
 const DataTable = ({ data, columns }) => {
   console.log("DataTable: Component called with props", {
@@ -14,6 +15,7 @@ const DataTable = ({ data, columns }) => {
     columns: columns ? `Array with ${columns.length} items` : "null/undefined",
   });
 
+  const [useResizableTable, setUseResizableTable] = useState(false);
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
@@ -361,29 +363,55 @@ const DataTable = ({ data, columns }) => {
     <div className="w-full">
       {/* Toolbar */}
       <div className="mb-4 flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-lg border shadow-sm">
-        {/* Left side - Search */}
-        <div className="flex-1 min-w-64">
-          <div className="relative">
-            <input
-              type="text"
-              value={globalFilter ?? ""}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search all columns..."
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <svg
-              className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        {/* Left side - Search and Table Toggle */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 min-w-64">
+            <div className="relative">
+              <input
+                type="text"
+                value={globalFilter ?? ""}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                placeholder="Search all columns..."
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </svg>
+              <svg
+                className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Table View Toggle */}
+          <div className="flex items-center bg-gray-100 rounded-md p-1">
+            <button
+              onClick={() => setUseResizableTable(false)}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                !useResizableTable
+                  ? "bg-white shadow text-blue-600 font-medium"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Advanced Table
+            </button>
+            <button
+              onClick={() => setUseResizableTable(true)}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                useResizableTable
+                  ? "bg-white shadow text-blue-600 font-medium"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Resizable Table
+            </button>
           </div>
         </div>
 
@@ -405,7 +433,7 @@ const DataTable = ({ data, columns }) => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth="2"
-                  d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2z"
+                  d="M9 17V7m0 10a2 2 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
               Columns
@@ -519,279 +547,291 @@ const DataTable = ({ data, columns }) => {
 
       {/* Table */}
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200" ref={tableRef}>
-            <thead className="bg-blue-600">
-              <tr>
-                {table.getHeaderGroups()[0].headers.map((header) => {
-                  const columnId = header.column.columnDef.accessorKey;
-                  const hasFilter = columnFilters.some(
-                    (f) => f.id === columnId
-                  );
-                  const sortDirection = header.column.getIsSorted();
-                  // Use consistent column sizing
-                  const columnSize = getColumnSize(columnId);
-
-                  return (
-                    <th
-                      key={header.id}
-                      className="text-left text-xs font-medium text-white uppercase tracking-wider border-r border-blue-700 last:border-r-0 relative"
-                      style={{
-                        width: `${columnSize}px`,
-                        minWidth: `${MIN_COLUMN_WIDTH}px`,
-                        maxWidth: `${MAX_COLUMN_WIDTH}px`,
-                      }}
-                    >
-                      <div className="flex items-center justify-between h-full">
-                        <div
-                          className="flex items-center cursor-pointer hover:text-blue-200 px-4 py-3 flex-1"
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          <span className="mr-2 truncate">
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                          </span>
-                          {sortDirection === "asc" && (
-                            <span className="text-blue-200">↑</span>
-                          )}
-                          {sortDirection === "desc" && (
-                            <span className="text-blue-200">↓</span>
-                          )}
-                          {!sortDirection && (
-                            <span className="text-blue-300">↕</span>
-                          )}
-                        </div>
-
-                        {/* Resize Handle */}
-                        <div
-                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 hover:bg-blue-300 opacity-0 hover:opacity-100 transition-opacity"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setIsResizing(columnId);
-                          }}
-                        />
-                      </div>
-
-                      {/* Filter Button - moved to second row */}
-                      {columnId && (
-                        <div className="absolute right-2 bottom-2">
-                          <div
-                            className="relative"
-                            ref={(el) => (dropdownRefs.current[columnId] = el)}
-                          >
-                            <button
-                              onClick={() => toggleDropdown(columnId)}
-                              className={`p-1 rounded hover:bg-blue-500 transition-colors ${
-                                hasFilter
-                                  ? "text-blue-200 bg-blue-700"
-                                  : "text-blue-300"
-                              }`}
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </button>
-
-                            {/* Filter Dropdown */}
-                            {openDropdowns[columnId] && (
-                              <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
-                                <div className="p-2">
-                                  <div className="pb-2 border-b border-gray-200 mb-2">
-                                    <p className="text-sm font-medium text-gray-700">
-                                      Filter by {header.column.columnDef.header}
-                                    </p>
-                                  </div>
-
-                                  {/* Select All Option */}
-                                  <label className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={
-                                        columnMultiSelectValues[columnId]
-                                          ?.length ===
-                                          getColumnFilterOptions[columnId]
-                                            ?.length &&
-                                        getColumnFilterOptions[columnId]
-                                          ?.length > 0
-                                      }
-                                      onChange={(e) =>
-                                        handleMultiSelectChange(
-                                          columnId,
-                                          "SELECT_ALL",
-                                          e.target.checked
-                                        )
-                                      }
-                                      className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                    />
-                                    <span className="text-sm text-gray-700">
-                                      Select All
-                                    </span>
-                                  </label>
-
-                                  {/* Filter Options */}
-                                  {getColumnFilterOptions[columnId]?.map(
-                                    (value) => (
-                                      <label
-                                        key={value}
-                                        className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer"
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={columnMultiSelectValues[
-                                            columnId
-                                          ]?.includes(value)}
-                                          onChange={(e) =>
-                                            handleMultiSelectChange(
-                                              columnId,
-                                              value,
-                                              e.target.checked
-                                            )
-                                          }
-                                          className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                        />
-                                        <span className="text-sm text-gray-700 truncate">
-                                          {value}
-                                        </span>
-                                      </label>
-                                    )
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {table.getRowModel().rows.map((row, idx) => (
-                <tr
-                  key={row.id}
-                  className={`hover:bg-gray-50 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  }`}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const columnId = cell.column.columnDef.accessorKey;
+        {useResizableTable ? (
+          <ResizableTable data={data} columns={columns} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table
+              className="min-w-full divide-y divide-gray-200"
+              ref={tableRef}
+            >
+              <thead className="bg-blue-600">
+                <tr>
+                  {table.getHeaderGroups()[0].headers.map((header) => {
+                    const columnId = header.column.columnDef.accessorKey;
+                    const hasFilter = columnFilters.some(
+                      (f) => f.id === columnId
+                    );
+                    const sortDirection = header.column.getIsSorted();
                     // Use consistent column sizing
                     const columnSize = getColumnSize(columnId);
 
                     return (
-                      <td
-                        key={cell.id}
-                        className="text-sm text-gray-900 border-r border-gray-100 last:border-r-0"
+                      <th
+                        key={header.id}
+                        className="text-left text-xs font-medium text-white uppercase tracking-wider border-r border-blue-700 last:border-r-0 relative"
                         style={{
                           width: `${columnSize}px`,
                           minWidth: `${MIN_COLUMN_WIDTH}px`,
                           maxWidth: `${MAX_COLUMN_WIDTH}px`,
                         }}
                       >
-                        <div
-                          className="px-4 py-3 truncate"
-                          title={String(cell.getValue())}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
+                        <div className="flex items-center justify-between h-full">
+                          <div
+                            className="flex items-center cursor-pointer hover:text-blue-200 px-4 py-3 flex-1"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            <span className="mr-2 truncate">
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                            </span>
+                            {sortDirection === "asc" && (
+                              <span className="text-blue-200">↑</span>
+                            )}
+                            {sortDirection === "desc" && (
+                              <span className="text-blue-200">↓</span>
+                            )}
+                            {!sortDirection && (
+                              <span className="text-blue-300">↕</span>
+                            )}
+                          </div>
+
+                          {/* Resize Handle */}
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 hover:bg-blue-300 opacity-0 hover:opacity-100 transition-opacity"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setIsResizing(columnId);
+                            }}
+                          />
                         </div>
-                      </td>
+
+                        {/* Filter Button - moved to second row */}
+                        {columnId && (
+                          <div className="absolute right-2 bottom-2">
+                            <div
+                              className="relative"
+                              ref={(el) =>
+                                (dropdownRefs.current[columnId] = el)
+                              }
+                            >
+                              <button
+                                onClick={() => toggleDropdown(columnId)}
+                                className={`p-1 rounded hover:bg-blue-500 transition-colors ${
+                                  hasFilter
+                                    ? "text-blue-200 bg-blue-700"
+                                    : "text-blue-300"
+                                }`}
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </button>
+
+                              {/* Filter Dropdown */}
+                              {openDropdowns[columnId] && (
+                                <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                                  <div className="p-2">
+                                    <div className="pb-2 border-b border-gray-200 mb-2">
+                                      <p className="text-sm font-medium text-gray-700">
+                                        Filter by{" "}
+                                        {header.column.columnDef.header}
+                                      </p>
+                                    </div>
+
+                                    {/* Select All Option */}
+                                    <label className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          columnMultiSelectValues[columnId]
+                                            ?.length ===
+                                            getColumnFilterOptions[columnId]
+                                              ?.length &&
+                                          getColumnFilterOptions[columnId]
+                                            ?.length > 0
+                                        }
+                                        onChange={(e) =>
+                                          handleMultiSelectChange(
+                                            columnId,
+                                            "SELECT_ALL",
+                                            e.target.checked
+                                          )
+                                        }
+                                        className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="text-sm text-gray-700">
+                                        Select All
+                                      </span>
+                                    </label>
+
+                                    {/* Filter Options */}
+                                    {getColumnFilterOptions[columnId]?.map(
+                                      (value) => (
+                                        <label
+                                          key={value}
+                                          className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={columnMultiSelectValues[
+                                              columnId
+                                            ]?.includes(value)}
+                                            onChange={(e) =>
+                                              handleMultiSelectChange(
+                                                columnId,
+                                                value,
+                                                e.target.checked
+                                              )
+                                            }
+                                            className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                          />
+                                          <span className="text-sm text-gray-700 truncate">
+                                            {value}
+                                          </span>
+                                        </label>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </th>
                     );
                   })}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {table.getRowModel().rows.map((row, idx) => (
+                  <tr
+                    key={row.id}
+                    className={`hover:bg-gray-50 ${
+                      idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const columnId = cell.column.columnDef.accessorKey;
+                      // Use consistent column sizing
+                      const columnSize = getColumnSize(columnId);
+
+                      return (
+                        <td
+                          key={cell.id}
+                          className="text-sm text-gray-900 border-r border-gray-100 last:border-r-0"
+                          style={{
+                            width: `${columnSize}px`,
+                            minWidth: `${MIN_COLUMN_WIDTH}px`,
+                            maxWidth: `${MAX_COLUMN_WIDTH}px`,
+                          }}
+                        >
+                          <div
+                            className="px-4 py-3 truncate"
+                            title={String(cell.getValue())}
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Pagination */}
-        <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <p className="text-sm text-gray-700">
-                Showing{" "}
-                <span className="font-medium">
-                  {table.getState().pagination.pageIndex *
-                    table.getState().pagination.pageSize +
-                    1}
-                </span>{" "}
-                to{" "}
-                <span className="font-medium">
-                  {Math.min(
-                    (table.getState().pagination.pageIndex + 1) *
-                      table.getState().pagination.pageSize,
-                    table.getFilteredRowModel().rows.length
-                  )}
-                </span>{" "}
-                of{" "}
-                <span className="font-medium">
-                  {table.getFilteredRowModel().rows.length}
-                </span>{" "}
-                results
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <select
-                value={table.getState().pagination.pageSize}
-                onChange={(e) => table.setPageSize(Number(e.target.value))}
-                className="rounded border-gray-300 text-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
-              >
-                {[5, 10, 20, 30, 40, 50].map((pageSize) => (
-                  <option key={pageSize} value={pageSize}>
-                    Show {pageSize}
-                  </option>
-                ))}
-              </select>
-              <div className="flex">
-                <button
-                  onClick={() => table.setPageIndex(0)}
-                  disabled={!table.getCanPreviousPage()}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+        {!useResizableTable && (
+          <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <p className="text-sm text-gray-700">
+                  Showing{" "}
+                  <span className="font-medium">
+                    {table.getState().pagination.pageIndex *
+                      table.getState().pagination.pageSize +
+                      1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium">
+                    {Math.min(
+                      (table.getState().pagination.pageIndex + 1) *
+                        table.getState().pagination.pageSize,
+                      table.getFilteredRowModel().rows.length
+                    )}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium">
+                    {table.getFilteredRowModel().rows.length}
+                  </span>{" "}
+                  results
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <select
+                  value={table.getState().pagination.pageSize}
+                  onChange={(e) => table.setPageSize(Number(e.target.value))}
+                  className="rounded border-gray-300 text-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
                 >
-                  ««
-                </button>
-                <button
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                  className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  ‹
-                </button>
-                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                  Page {table.getState().pagination.pageIndex + 1} of{" "}
-                  {table.getPageCount()}
-                </span>
-                <button
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                  className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  ›
-                </button>
-                <button
-                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                  disabled={!table.getCanNextPage()}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  »»
-                </button>
+                  {[5, 10, 20, 30, 40, 50].map((pageSize) => (
+                    <option key={pageSize} value={pageSize}>
+                      Show {pageSize}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex">
+                  <button
+                    onClick={() => table.setPageIndex(0)}
+                    disabled={!table.getCanPreviousPage()}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    ««
+                  </button>
+                  <button
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    ‹
+                  </button>
+                  <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                    Page {table.getState().pagination.pageIndex + 1} of{" "}
+                    {table.getPageCount()}
+                  </span>
+                  <button
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    ›
+                  </button>
+                  <button
+                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                    disabled={!table.getCanNextPage()}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    »»
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

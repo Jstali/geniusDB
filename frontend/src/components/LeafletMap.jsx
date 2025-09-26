@@ -29,13 +29,30 @@ const getMarkerColor = (headroom) => {
   }
 };
 
-// Custom marker icon component
+// Custom marker icon component - Changed to location pin shape with Pin Traveler logo
 const createMarkerIcon = (color) => {
   return L.divIcon({
     className: "custom-icon",
-    html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    html: `
+      <div style="position: relative; width: 30px; height: 30px;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="1">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>
+        <!-- Pin Traveler Logo -->
+        <div style="position: absolute; top: 3px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px;">
+          <svg width="14" height="14" viewBox="0 0 24 24">
+            <!-- White background circle -->
+            <circle cx="12" cy="12" r="9" fill="white"/>
+            <!-- Mini pin shape -->
+            <path d="M12 7c-1.1 0-2 .9-2 2 0 1.5 1.5 4 2 5 0 0 1.5-2.5 1.5-4 0-1.1-.9-2-2-2z" fill="${color}"/>
+            <circle cx="12" cy="9" r="1" fill="white"/>
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [30, 30],
+    iconAnchor: [15, 30], // Anchor at the bottom center of the pin
+    popupAnchor: [0, -30], // Popup appears above the pin
   });
 };
 
