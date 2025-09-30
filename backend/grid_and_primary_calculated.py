@@ -10,6 +10,8 @@ import os
 from dotenv import load_dotenv
 import re
 from difflib import SequenceMatcher
+import sys
+import shutil
 
 # Load .env variables
 load_dotenv()
@@ -64,6 +66,24 @@ except Exception as e:
     print(f"Database connection failed - Unexpected error: {e}")
     print(f"Error type: {type(e).__name__}")
     conn = None
+
+# If there is no DB connection, attempt to fallback to an existing CSV in the data dir
+if conn is None:
+    fallback_csv = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "transformed_transformer_data.csv")
+    if os.path.exists(fallback_csv):
+        print("No DB connection available, but found existing CSV. Copying to working directory and exiting successfully.")
+        try:
+            shutil.copy(fallback_csv, os.path.join(os.path.dirname(os.path.abspath(__file__)), "transformed_transformer_data.csv"))
+            print("Copied fallback CSV to transformed_transformer_data.csv")
+            sys.exit(0)
+        except Exception as e:
+            print(f"Failed to copy fallback CSV: {e}")
+            # Fall through and allow later code to attempt to run (which may fail)
+    else:
+        print("\nERROR: No database connection available and no fallback CSV found.")
+        print("Cannot proceed without database connection or fallback data.")
+        # Exit with non-zero to indicate failure
+        sys.exit(1)
 
 # Configuration
 SPARE_MULTIPLIER = 0.96

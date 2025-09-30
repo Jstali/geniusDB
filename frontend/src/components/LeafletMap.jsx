@@ -65,15 +65,17 @@ const LeafletMap = () => {
     const fetchMapData = async () => {
       try {
         setLoading(true);
-        // Fetch real map data from the backend API
-        const response = await fetch("http://localhost:8000/data/map");
+        console.log("Fetching map data...");
+
+        const response = await fetch("/data/map");
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const mapData = await response.json();
+        const jsonData = await response.json();
+        console.log("Fetched map data:", jsonData.length, "records");
 
         // Transform the data into the format expected by the map component
-        const transformedMarkers = mapData.map((site) => ({
+        const transformedMarkers = jsonData.map((site) => ({
           id: site.id,
           position: site.position,
           popupText: site.popup_text,
@@ -178,7 +180,7 @@ const LeafletMap = () => {
   ).length;
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" style={{ zIndex: "1" }}>
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -245,12 +247,8 @@ const LeafletMap = () => {
                 <Popup>
                   <div className="p-2">
                     <h3 className="font-bold text-lg mb-1">
-                      {marker.popupText}
+                      {marker.siteName}
                     </h3>
-                    <p className="text-sm text-gray-600">
-                      Lat: {marker.position[0].toFixed(4)}, Lng:{" "}
-                      {marker.position[1].toFixed(4)}
-                    </p>
                     {marker.generationHeadroom !== null &&
                       marker.generationHeadroom !== undefined && (
                         <p className="text-sm mt-1">
@@ -270,9 +268,18 @@ const LeafletMap = () => {
                           </span>
                         </p>
                       )}
-                    <p className="text-xs mt-2 text-gray-500">
-                      Click anywhere else to add more markers
-                    </p>
+                    {marker.siteVoltage && (
+                      <p className="text-sm mt-1">
+                        <span className="font-medium">Voltage:</span>{" "}
+                        {marker.siteVoltage} kV
+                      </p>
+                    )}
+                    {marker.county && (
+                      <p className="text-sm mt-1">
+                        <span className="font-medium">County:</span>{" "}
+                        {marker.county}
+                      </p>
+                    )}
                   </div>
                 </Popup>
               </Marker>

@@ -139,7 +139,7 @@ const ResizableTable = ({ data, columns }) => {
               return (
                 <th
                   key={columnId}
-                  className="text-left text-xs font-medium text-white uppercase tracking-wider border-r border-blue-700 last:border-r-0 relative"
+                  className="text-left text-xs font-medium text-white uppercase tracking-wider border-r border-blue-700 last:border-r-0 relative group"
                   style={{
                     width: `${columnSize}px`,
                     minWidth: `${MIN_COLUMN_WIDTH}px`,
@@ -151,7 +151,7 @@ const ResizableTable = ({ data, columns }) => {
 
                     {/* Resize Handle */}
                     <div
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 hover:bg-blue-300 opacity-0 hover:opacity-100 transition-opacity"
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 hover:bg-blue-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         setIsResizing(columnId);
@@ -167,9 +167,9 @@ const ResizableTable = ({ data, columns }) => {
           {data.map((row, rowIndex) => (
             <tr
               key={rowIndex}
-              className={`hover:bg-gray-50 ${
+              className={`transition-colors duration-150 ${
                 rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"
-              }`}
+              } hover:bg-blue-50 hover:shadow-sm`}
             >
               {columns.map((column) => {
                 const columnId = getColumnId(column);
@@ -179,7 +179,7 @@ const ResizableTable = ({ data, columns }) => {
                 return (
                   <td
                     key={`${rowIndex}-${columnId}`}
-                    className="text-sm text-gray-900 border-r border-gray-100 last:border-r-0"
+                    className="text-sm text-gray-900 border-r border-gray-100 last:border-r-0 group"
                     style={{
                       width: `${columnSize}px`,
                       minWidth: `${MIN_COLUMN_WIDTH}px`,
@@ -187,7 +187,7 @@ const ResizableTable = ({ data, columns }) => {
                     }}
                   >
                     <div
-                      className="px-4 py-3 truncate"
+                      className="px-4 py-3 truncate hover:text-blue-600 transition-colors duration-150"
                       title={String(cellValue)}
                     >
                       {cellValue !== null && cellValue !== undefined

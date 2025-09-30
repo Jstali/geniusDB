@@ -104,6 +104,21 @@ def get_map_data():
                     if pd.isna(generation_headroom):
                         generation_headroom = None
                     
+                    # Get Bulk Supply Point
+                    bulk_supply_point = row.get('Bulk Supply Point', None)
+                    if pd.isna(bulk_supply_point):
+                        bulk_supply_point = None
+                        
+                    # Get Constraint Description
+                    constraint_description = row.get('Constraint description', None)
+                    if pd.isna(constraint_description):
+                        constraint_description = None
+                        
+                    # Get Licence Area (Network Operator)
+                    licence_area = row.get('Licence Area', None)
+                    if pd.isna(licence_area):
+                        licence_area = None
+                    
                     map_data.append({
                         "id": index,
                         "position": [lat, lng],
@@ -112,7 +127,10 @@ def get_map_data():
                         "site_voltage": site_voltage,
                         "county": county,
                         "generation_headroom": generation_headroom,
-                        "popup_text": f"{site_name} ({site_type})"
+                        "popup_text": f"{site_name} ({site_type})",
+                        "bulk_supply_point": bulk_supply_point,
+                        "constraint_description": constraint_description,
+                        "licence_area": licence_area
                     })
             except (ValueError, IndexError):
                 # Skip rows with invalid coordinates

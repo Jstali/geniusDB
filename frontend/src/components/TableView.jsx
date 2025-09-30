@@ -82,35 +82,32 @@ const TableView = ({ updateTableData }) => {
         setLoading(true);
         console.log("TableView: Starting data fetch...");
 
+        const API_BASE =
+          import.meta.env.VITE_API_BASE || "http://localhost:8000";
+
         // First, trigger the data processing script
-        const processResponse = await fetch(
-          "http://localhost:8000/process/transformers"
-        );
-        console.log(
-          "TableView: Process response status:",
-          processResponse.status
-        );
+        const processResponse = await fetch(`${API_BASE}/process/transformers`);
         if (!processResponse.ok) {
           throw new Error(
             `HTTP error while processing data! status: ${processResponse.status}`
           );
         }
         const processResult = await processResponse.json();
-        console.log("TableView: Process result:", processResult);
         if (processResult.status === "error") {
           throw new Error(processResult.message);
         }
+        console.log("Data processing result:", processResult);
 
         // Then fetch the transformer data from the backend API
-        const response = await fetch("http://localhost:8000/data/transformers");
-        console.log("TableView: Data response status:", response.status);
+        const response = await fetch(`${API_BASE}/data/transformers`);
         if (!response.ok) {
           throw new Error(
             `HTTP error while fetching data! status: ${response.status}`
           );
         }
         const jsonData = await response.json();
-        console.log("TableView: Received data:", jsonData);
+        console.log("Fetched transformer data:", jsonData.length, "records");
+        console.log("Sample data:", jsonData.slice(0, 3));
 
         // Set the transformer data directly
         setData(jsonData);
@@ -226,7 +223,14 @@ const TableView = ({ updateTableData }) => {
         <Button
           variant="outlined"
           onClick={() => setFilters({})}
-          sx={{ mt: 2 }}
+          sx={{
+            mt: 2,
+            transition: "all 0.2s ease-in-out",
+            "&:hover": {
+              transform: "scale(1.05)",
+              boxShadow: 2,
+            },
+          }}
         >
           Clear All Filters
         </Button>
@@ -296,7 +300,14 @@ const TableView = ({ updateTableData }) => {
             variant="outlined"
             startIcon={<FilterListIcon />}
             onClick={toggleDrawer}
-            sx={{ height: "fit-content" }}
+            sx={{
+              height: "fit-content",
+              transition: "all 0.2s ease-in-out",
+              "&:hover": {
+                transform: "scale(1.05)",
+                boxShadow: 2,
+              },
+            }}
           >
             Filters
           </Button>

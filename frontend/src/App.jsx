@@ -7,17 +7,16 @@ import {
 } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import MapTest from "./components/MapTest";
 
 function App() {
   return (
     <Router>
-      <div className="App">
+      <div className="min-h-screen bg-gray-50">
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/map-test" element={<MapTest />} />
+          <Route path="/dashboard/*" element={<Dashboard />} />
         </Routes>
       </div>
     </Router>

@@ -49,34 +49,28 @@ const CustomChartBuilder = ({ data, columns }) => {
       console.log("CustomChartBuilder: Starting data fetch from database...");
 
       // First, trigger the data processing script
-      const processResponse = await fetch(
-        "http://localhost:8000/process/transformers"
-      );
-      console.log(
-        "CustomChartBuilder: Process response status:",
-        processResponse.status
-      );
+      const processResponse = await fetch("/process/transformers");
       if (!processResponse.ok) {
         throw new Error(
           `HTTP error while processing data! status: ${processResponse.status}`
         );
       }
       const processResult = await processResponse.json();
-      console.log("CustomChartBuilder: Process result:", processResult);
       if (processResult.status === "error") {
         throw new Error(processResult.message);
       }
+      console.log("Data processing result:", processResult);
 
       // Then fetch the transformer data from the backend API
-      const response = await fetch("http://localhost:8000/data/transformers");
-      console.log("CustomChartBuilder: Data response status:", response.status);
+      const response = await fetch("/data/transformers");
       if (!response.ok) {
         throw new Error(
           `HTTP error while fetching data! status: ${response.status}`
         );
       }
       const jsonData = await response.json();
-      console.log("CustomChartBuilder: Received data:", jsonData);
+      console.log("Fetched transformer data:", jsonData.length, "records");
+      console.log("Sample data:", jsonData.slice(0, 3));
 
       // Set the transformer data directly
       setChartData(jsonData);
@@ -964,7 +958,7 @@ const CustomChartBuilder = ({ data, columns }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 dark:bg-gray-800 dark:text-white">
+    <div className="bg-white rounded-lg shadow-lg p-6 dark:bg-gray-800 dark:text-white transition-all duration-300 hover:shadow-xl">
       <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">
         Custom Chart Builder
       </h2>
@@ -974,7 +968,7 @@ const CustomChartBuilder = ({ data, columns }) => {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 hover:scale-105 hover:shadow-lg disabled:opacity-50 flex items-center transition-all duration-300 transform"
         >
           {loading ? (
             <>
@@ -1036,11 +1030,11 @@ const CustomChartBuilder = ({ data, columns }) => {
                 setPresetChart(chart.id);
                 setChartType(chart.type);
               }}
-              className={`p-3 text-left rounded-md border ${
+              className={`p-4 text-left rounded-lg border-2 transition-all duration-300 ease-in-out transform ${
                 presetChart === chart.id
-                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
-                  : "border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-              } transition-colors`}
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md"
+                  : "border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:shadow-lg hover:scale-105 hover:bg-blue-50/50 dark:hover:bg-gray-700/50"
+              }`}
             >
               <div className="font-medium text-gray-900 dark:text-white">
                 {chart.name}
@@ -1066,7 +1060,7 @@ const CustomChartBuilder = ({ data, columns }) => {
               console.log("Chart type changed to:", e.target.value);
               setChartType(e.target.value);
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-300 hover:border-blue-400 hover:shadow-md"
             disabled={!!presetChart} // Disable when preset chart is selected
           >
             <option value="bar">Bar</option>
@@ -1088,7 +1082,7 @@ const CustomChartBuilder = ({ data, columns }) => {
               console.log("X axis changed to:", e.target.value);
               setXAxis(e.target.value);
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-300 hover:border-blue-400 hover:shadow-md"
             disabled={!!presetChart} // Disable when preset chart is selected
           >
             <option value="">Select X Axis</option>
@@ -1112,7 +1106,7 @@ const CustomChartBuilder = ({ data, columns }) => {
                 console.log("Y axis changed to:", e.target.value);
                 setYAxis(e.target.value);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-300 hover:border-blue-400 hover:shadow-md"
               disabled={!!presetChart} // Disable when preset chart is selected
             >
               <option value="">Select Y Axis</option>
@@ -1129,7 +1123,7 @@ const CustomChartBuilder = ({ data, columns }) => {
         <div className="flex items-end">
           <button
             onClick={generateChart}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg border-2 border-blue-600 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
             disabled={!!presetChart} // Disable when preset chart is selected
           >
             {presetChart ? "Generate Preset Chart" : "Generate Chart"}
@@ -1153,7 +1147,7 @@ const CustomChartBuilder = ({ data, columns }) => {
             </h3>
             <button
               onClick={resetChart}
-              className="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-all duration-300 hover:underline"
             >
               Clear Chart
             </button>

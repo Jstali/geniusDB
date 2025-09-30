@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -58,8 +58,8 @@ const createMarkerIcon = (color) => {
 
 // Home page map settings
 const homePageMapConfig = {
-  center: [54.5, -2.0], // UK center coordinates
-  zoom: 6, // Adjust to show UK with markers
+  center: [52.3, 0.1], // Updated to requested coordinates
+  zoom: 8, // Updated to requested zoom level
   bounds: "auto-fit-to-markers",
   padding: 20,
   controls: {
@@ -69,40 +69,149 @@ const homePageMapConfig = {
   },
 };
 
-const CompactLeafletMap = ({ isHomePage = false }) => {
+const CompactLeafletMap = ({
+  isHomePage = false,
+  data = [],
+  filters,
+  onMarkerClick,
+}) => {
   const [markers, setMarkers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const mapRef = useRef(null);
 
+  // Set default filters if not provided
+  const effectiveFilters = filters || useMemo(() => ({}), []);
+
+  // Apply filters to the data
+  const filteredData = useMemo(() => {
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    const result = data.filter((site) => {
+      // Site name filter
+      if (
+        effectiveFilters.siteName &&
+        effectiveFilters.siteName.trim() !== ""
+      ) {
+        const siteName = site["Site Name"] || "";
+        if (
+          !siteName
+            .toLowerCase()
+            .includes(effectiveFilters.siteName.toLowerCase())
+        ) {
+          return false;
+        }
+      }
+
+      // Voltage filter
+      if (effectiveFilters.voltage && effectiveFilters.voltage.length > 0) {
+        const siteVoltage = site["Site Voltage"];
+        if (siteVoltage && !effectiveFilters.voltage.includes(siteVoltage)) {
+          return false;
+        }
+      }
+
+      // Power range filter - only show sites with availablePower <= selectedValue
+      if (effectiveFilters.powerRange) {
+        const headroom = site["Generation Headroom Mw"];
+        if (headroom !== undefined && headroom !== null && !isNaN(headroom)) {
+          if (headroom > effectiveFilters.powerRange.max) {
+            return false;
+          }
+        } else {
+          // If headroom is undefined/null/NaN, we still include the site
+          // This ensures sites without power data are still visible
+        }
+      }
+
+      // Operator filter
+      if (effectiveFilters.operators && effectiveFilters.operators.length > 0) {
+        const licenceArea = site["Licence Area"];
+        if (licenceArea && !effectiveFilters.operators.includes(licenceArea)) {
+          return false;
+        }
+      }
+
+      // Check if site has valid coordinates
+      const spatialCoords = site["Spatial Coordinates"];
+      if (!spatialCoords || spatialCoords === "\\N") {
+        console.log(
+          "Site filtered out due to missing coordinates:",
+          site["Site Name"]
+        );
+        return false;
+      }
+
+      return true;
+    });
+
+    return result;
+  }, [data, effectiveFilters]);
+
   useEffect(() => {
-    const fetchMapData = async () => {
+    const processMapData = () => {
       try {
         setLoading(true);
-        console.log("Fetching map data...");
-        // Fetch real map data from the backend API
-        const response = await fetch("http://localhost:8000/data/map");
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const mapData = await response.json();
-        console.log("Map data received:", mapData);
+        console.log("Processing map data with filters...", {
+          filters: effectiveFilters,
+          dataLength: data.length,
+          filteredDataLength: filteredData.length,
+          isHomePage: isHomePage,
+        });
 
-        // Transform the data into the format expected by the map component
-        const transformedMarkers = mapData.map((site) => ({
-          id: site.id,
-          position: site.position,
-          popupText: site.popup_text,
-          siteName: site.site_name,
-          siteType: site.site_type,
-          siteVoltage: site.site_voltage,
-          county: site.county,
-          generationHeadroom: site.generation_headroom,
-          color: getMarkerColor(site.generation_headroom),
-        }));
+        // Transform the filtered data into the format expected by the map component
+        const transformedMarkers = filteredData
+          .map((site, index) => {
+            // Get spatial coordinates (format: "lat, lng")
+            const spatialCoords = site["Spatial Coordinates"];
+            if (!spatialCoords || spatialCoords === "\\N") {
+              return null;
+            }
+
+            try {
+              const coords = spatialCoords.trim().split(", ");
+              if (coords.length !== 2) return null;
+
+              const lat = parseFloat(coords[0]);
+              const lng = parseFloat(coords[1]);
+
+              if (isNaN(lat) || isNaN(lng)) return null;
+
+              // Get site name
+              const siteName = site["Site Name"] || "Unknown Site";
+
+              // Get Generation Headroom Mw value
+              const generationHeadroom = site["Generation Headroom Mw"];
+
+              // Create a unique ID by combining site ID or name with index to prevent duplicates
+              const uniqueId = site["id"]
+                ? `${site["id"]}-${index}`
+                : `${siteName}-${index}`;
+
+              return {
+                id: uniqueId,
+                position: [lat, lng],
+                popupText: `${siteName} (${site["Site Type"] || "Unknown"})`,
+                siteName: siteName,
+                siteType: site["Site Type"] || "Unknown",
+                siteVoltage: site["Site Voltage"] || "Unknown",
+                county: site["County"] || "Unknown",
+                generationHeadroom: generationHeadroom,
+                color: getMarkerColor(generationHeadroom),
+                // Include the full site data so all fields are available in SiteDetailsPanel
+                ...site,
+              };
+            } catch (e) {
+              console.error("Error processing site coordinates:", site, e);
+              return null;
+            }
+          })
+          .filter((marker) => marker !== null); // Remove null markers
 
         setMarkers(transformedMarkers);
-        console.log("Markers set:", transformedMarkers);
+        console.log("Markers set:", transformedMarkers.length);
 
         // Auto-fit map to markers after data is loaded (only for home page)
         if (isHomePage && mapRef.current && transformedMarkers.length > 0) {
@@ -122,11 +231,23 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
               console.log("Map fitted to bounds");
             }
           }, 100);
+        } else if (isHomePage && transformedMarkers.length === 0) {
+          console.log("No markers to display on home page map");
+          // Set map to default view (this will not override user interactions)
+          setTimeout(() => {
+            if (mapRef.current && !mapRef.current.hasBoundsSet) {
+              mapRef.current.setView(
+                homePageMapConfig.center,
+                homePageMapConfig.zoom
+              );
+              console.log("Map set to default view");
+            }
+          }, 100);
         }
       } catch (err) {
-        console.error("Error fetching map data:", err);
-        setError("Failed to fetch map data from backend");
-        // Fallback to sample data if backend fails
+        console.error("Error processing map data:", err);
+        setError("Failed to process map data");
+        // Fallback to sample data if processing fails
         const sampleMarkers = [
           {
             id: 1,
@@ -148,11 +269,8 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
           },
         ];
         setMarkers(sampleMarkers);
-        console.log("Using sample markers:", sampleMarkers);
-
         // Auto-fit map to sample markers (only for home page)
         if (isHomePage && mapRef.current && sampleMarkers.length > 0) {
-          console.log("Auto-fitting map to sample markers for home page");
           const bounds = L.latLngBounds(
             sampleMarkers.map((marker) => marker.position)
           );
@@ -163,7 +281,6 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
                 padding: [homePageMapConfig.padding, homePageMapConfig.padding],
                 maxZoom: 12,
               });
-              console.log("Map fitted to sample bounds");
             }
           }, 100);
         }
@@ -172,18 +289,28 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
       }
     };
 
-    fetchMapData();
-  }, [isHomePage]);
+    processMapData();
+  }, [filteredData, isHomePage]);
 
-  const handleMapClick = (event) => {
-    const { lat, lng } = event.latlng;
-    const newMarker = {
-      id: markers.length + 1,
-      position: [lat, lng],
-      popupText: `Marker #${markers.length + 1}`,
+  useEffect(() => {
+    // Handle window resize to ensure map resizes properly
+    const handleResize = () => {
+      if (mapRef.current) {
+        setTimeout(() => {
+          mapRef.current.invalidateSize();
+        }, 100);
+      }
     };
-    setMarkers([...markers, newMarker]);
-  };
+
+    window.addEventListener("resize", handleResize);
+
+    // Initial resize check
+    handleResize();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -202,6 +329,17 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
         >
           <strong className="font-bold">Error! </strong>
           <span className="block sm:inline">{error}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // If there are no markers on the home page, show a friendly message
+  if (isHomePage && (!markers || markers.length === 0)) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="text-gray-600">
+          No site markers available. Please check backend or data source.
         </div>
       </div>
     );
@@ -228,6 +366,15 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
           ? "home-page-map"
           : "h-full bg-white rounded-lg shadow-lg p-4"
       }`}
+      style={
+        isHomePage
+          ? {
+              height: "600px",
+              position: "relative",
+              zIndex: "1",
+            }
+          : { position: "relative", zIndex: "1" }
+      }
     >
       {!isHomePage && (
         <div className="flex justify-between items-center mb-3">
@@ -255,30 +402,52 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
       )}
 
       <div
-        className={`relative w-full rounded-lg overflow-hidden border border-gray-300 ${
-          isHomePage ? "" : "h-[calc(100%-2rem)]"
+        className={`relative w-full rounded-lg overflow-hidden ${
+          isHomePage
+            ? "home-page-map-container border border-gray-300"
+            : "h-[calc(100%-2rem)]"
         }`}
       >
         <MapContainer
           center={isHomePage ? homePageMapConfig.center : [52.0, 0.5]}
           zoom={isHomePage ? homePageMapConfig.zoom : 8}
           style={{ height: "100%", width: "100%" }}
-          eventHandlers={{
-            click: handleMapClick,
-          }}
+          eventHandlers={
+            isHomePage
+              ? {
+                  click: () => {
+                    // Clear selection when clicking on the map background
+                    if (onMarkerClick) {
+                      onMarkerClick(null);
+                    }
+                  },
+                }
+              : {
+                  click: (event) => {
+                    const { lat, lng } = event.latlng;
+                    const newMarker = {
+                      id: markers.length + 1,
+                      position: [lat, lng],
+                      popupText: `Marker #${markers.length + 1}`,
+                    };
+                    setMarkers([...markers, newMarker]);
+                  },
+                }
+          }
           whenCreated={(map) => {
             mapRef.current = map;
-            console.log("Map created with markers:", markers);
-            // Auto-fit map to markers when map is created (only for home page)
-            if (isHomePage && markers.length > 0) {
-              console.log(
-                "Auto-fitting map to markers on creation for home page"
-              );
-              const bounds = L.latLngBounds(
-                markers.map((marker) => marker.position)
-              );
-              setTimeout(() => {
-                if (mapRef.current) {
+            // Set view only once on initial load for home page
+            if (isHomePage) {
+              // Use setView to ensure the map is centered at the specified coordinates with zoom level 8
+              map.setView([52.3, 0.1], 8);
+
+              // Auto-fit map to markers after initial view is set (if there are markers)
+              if (markers.length > 0) {
+                // Use a slight delay to ensure the initial view is set first
+                setTimeout(() => {
+                  const bounds = L.latLngBounds(
+                    markers.map((marker) => marker.position)
+                  );
                   map.fitBounds(bounds, {
                     padding: [
                       homePageMapConfig.padding,
@@ -286,15 +455,18 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
                     ],
                     maxZoom: 12,
                   });
-                  console.log("Map fitted to bounds on creation");
-                }
-              }, 100);
+                }, 50);
+              }
             }
           }}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            eventHandlers={{
+              load: () => {},
+              error: () => {},
+            }}
           />
 
           {markers.map((marker) => (
@@ -302,14 +474,17 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
               key={marker.id}
               position={marker.position}
               icon={createMarkerIcon(marker.color)}
+              eventHandlers={{
+                click: () => {
+                  if (onMarkerClick) {
+                    onMarkerClick(marker);
+                  }
+                },
+              }}
             >
               <Popup>
                 <div className="p-2">
-                  <h3 className="font-bold text-sm mb-1">{marker.popupText}</h3>
-                  <p className="text-xs text-gray-600">
-                    Lat: {marker.position[0].toFixed(4)}, Lng:{" "}
-                    {marker.position[1].toFixed(4)}
-                  </p>
+                  <h3 className="font-bold text-sm mb-1">{marker.siteName}</h3>
                   {marker.generationHeadroom !== null &&
                     marker.generationHeadroom !== undefined && (
                       <p className="text-xs mt-1">
@@ -329,6 +504,18 @@ const CompactLeafletMap = ({ isHomePage = false }) => {
                         </span>
                       </p>
                     )}
+                  {marker.siteVoltage && (
+                    <p className="text-xs mt-1">
+                      <span className="font-medium">Voltage:</span>{" "}
+                      {marker.siteVoltage} kV
+                    </p>
+                  )}
+                  {marker.county && (
+                    <p className="text-xs mt-1">
+                      <span className="font-medium">County:</span>{" "}
+                      {marker.county}
+                    </p>
+                  )}
                 </div>
               </Popup>
             </Marker>

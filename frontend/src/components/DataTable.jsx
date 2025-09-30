@@ -7,15 +7,70 @@ import {
   getFilteredRowModel,
   flexRender,
 } from "@tanstack/react-table";
-import ResizableTable from "./ResizableTable";
+import PivotConfigPanel from "./PivotConfigPanel";
+import PivotTableView from "./PivotTableView";
 
-const DataTable = ({ data, columns }) => {
-  console.log("DataTable: Component called with props", {
-    data: data ? `Array with ${data.length} items` : "null/undefined",
-    columns: columns ? `Array with ${columns.length} items` : "null/undefined",
-  });
+// Utility function to handle missing values based on inferred data types
+const handleMissingValue = (value, columnName) => {
+  // If the value is valid (not null, undefined, or empty string), return it as is
+  if (value !== null && value !== undefined && value !== "") {
+    return value;
+  }
 
-  const [useResizableTable, setUseResizableTable] = useState(false);
+  // For missing values, we need to infer the type
+  // Since we don't have explicit type information, we'll use heuristics:
+
+  // Common numeric columns (based on naming patterns)
+  const numericColumnPatterns = [
+    /headroom/i,
+    /capacity/i,
+    /power/i,
+    /voltage/i,
+    /demand/i,
+    /rating/i,
+    /mw$/i,
+    /kv$/i,
+    /mva$/i,
+    /ohm$/i,
+    /percentage/i,
+    /count/i,
+    /year/i,
+    /size/i,
+    /amount/i,
+    /value/i,
+    /number/i,
+    /total/i,
+    /sum/i,
+    /average/i,
+    /min/i,
+    /max/i,
+    /temperature/i,
+    /frequency/i,
+  ];
+
+  // Check if this is likely a numeric column
+  const isLikelyNumeric = numericColumnPatterns.some((pattern) =>
+    pattern.test(columnName.replace(/[^a-zA-Z0-9]/g, ""))
+  );
+
+  // Return appropriate default based on inferred type
+  if (isLikelyNumeric) {
+    return 0; // For numeric columns, return 0
+  } else {
+    return "null"; // For string columns, return "null"
+  }
+};
+
+// Custom cell renderer that handles missing values
+const renderCellContent = (value, columnName) => {
+  const processedValue = handleMissingValue(value, columnName);
+  return processedValue === null || processedValue === undefined
+    ? ""
+    : String(processedValue);
+};
+
+const DataTable = ({ data = [], columns = [], onRowClick, loading, error }) => {
+  // Initialize all hooks first to maintain consistent order
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
@@ -26,14 +81,28 @@ const DataTable = ({ data, columns }) => {
   });
   const [columnSizes, setColumnSizes] = useState({});
   const [isResizing, setIsResizing] = useState(null);
-  const tableRef = useRef(null);
-
-  // State for dropdown filters
+  const [selectedRowId, setSelectedRowId] = useState(null);
   const [openDropdowns, setOpenDropdowns] = useState({});
   const [columnMultiSelectValues, setColumnMultiSelectValues] = useState({});
   const [showColumnToggle, setShowColumnToggle] = useState(false);
+  // Pivot table state
+  const [isPivotMode, setIsPivotMode] = useState(false);
+  const [pivotConfig, setPivotConfig] = useState(null);
+  const [pivotError, setPivotError] = useState(null);
+
+  // Refs
+  const tableRef = useRef(null);
   const dropdownRefs = useRef({});
   const columnToggleRef = useRef(null);
+
+  // Debugging logs
+  console.log("DataTable: Component called with props", {
+    data: `Array with ${data.length} items`,
+    columns: `Array with ${columns.length} items`,
+    loading,
+  });
+
+  // Empty line to maintain structure
 
   // Set equal initial column sizes (Excel-like)
   const DEFAULT_COLUMN_WIDTH = 150;
@@ -56,6 +125,29 @@ const DataTable = ({ data, columns }) => {
   }, [columns]);
 
   // Error handling for missing data
+  if (loading) {
+    return (
+      <div className="rounded-lg shadow-sm bg-white p-8 text-center border">
+        <div className="text-gray-600 text-lg font-medium mb-2">
+          Loading data…
+        </div>
+        <p className="text-gray-500">
+          Please wait while the table data is being loaded.
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg shadow-sm bg-white p-8 text-center border">
+        <div className="text-red-600 text-lg font-semibold mb-2">
+          Error loading data
+        </div>
+        <p className="text-gray-500">{String(error)}</p>
+      </div>
+    );
+  }
   if (!data) {
     console.log("DataTable: No data provided");
     return (
@@ -118,14 +210,23 @@ const DataTable = ({ data, columns }) => {
     dataLength: data.length,
     columnsLength: columns.length,
   });
+  console.log("DataTable: Sample data record:", data[0]);
+  console.log("DataTable: Sample columns:", columns.slice(0, 5));
+
+  // Create columns with custom cell rendering
+  const processedColumns = columns.map((col) => ({
+    ...col,
+    filterFn: col.accessorKey ? "multiSelect" : undefined,
+    size: DEFAULT_COLUMN_WIDTH, // Set default size for TanStack table
+    cell: ({ getValue }) => {
+      const value = getValue();
+      return renderCellContent(value, col.accessorKey);
+    },
+  }));
 
   const table = useReactTable({
     data,
-    columns: columns.map((col) => ({
-      ...col,
-      filterFn: col.accessorKey ? "multiSelect" : undefined,
-      size: DEFAULT_COLUMN_WIDTH, // Set default size for TanStack table
-    })),
+    columns: processedColumns,
     state: {
       columnFilters,
       globalFilter,
@@ -163,6 +264,7 @@ const DataTable = ({ data, columns }) => {
 
   // Get unique values for each column
   const getColumnFilterOptions = useMemo(() => {
+    if (!data || !columns) return {};
     const options = {};
     columns.forEach((column) => {
       if (column.accessorKey) {
@@ -200,8 +302,10 @@ const DataTable = ({ data, columns }) => {
         visibleColumns
           .map((col) => {
             const cellValue = row.getValue(col.id);
+            // Use our custom rendering function for consistency
+            const displayValue = renderCellContent(cellValue, col.id);
             // Escape commas and quotes in CSV
-            const stringValue = String(cellValue || "");
+            const stringValue = String(displayValue || "");
             if (
               stringValue.includes(",") ||
               stringValue.includes('"') ||
@@ -359,6 +463,71 @@ const DataTable = ({ data, columns }) => {
     return DEFAULT_COLUMN_WIDTH;
   };
 
+  // Handle row click
+  const handleRowClick = (row) => {
+    const rowId = row.original.id || row.id;
+    setSelectedRowId(rowId);
+    if (onRowClick) {
+      onRowClick(rowId);
+    }
+  };
+
+  // Handle pivot table generation
+  const handleGeneratePivot = (config) => {
+    try {
+      console.log("=== DATA TABLE: GENERATING PIVOT ===");
+      console.log("Received pivot config:", config);
+      console.log("Data being passed to pivot:", data);
+      console.log("Data length:", data.length);
+      console.log("Sample data items:", data.slice(0, 3));
+
+      // Validate that we have data
+      if (!data || data.length === 0) {
+        const errorMsg = "No data available to generate pivot table";
+        console.warn(errorMsg);
+        setPivotError(errorMsg);
+        return;
+      }
+
+      // Validate config
+      if (!config) {
+        const errorMsg = "Invalid pivot configuration";
+        console.error(errorMsg);
+        setPivotError(errorMsg);
+        return;
+      }
+
+      // Log config details
+      console.log("Config details:");
+      console.log("- Rows:", config.rows);
+      console.log("- Columns:", config.columns);
+      console.log("- Values:", config.values);
+
+      setPivotConfig(config);
+      setPivotError(null);
+      console.log("Pivot configuration set successfully");
+    } catch (error) {
+      console.error("Error generating pivot table:", error);
+      setPivotError("Failed to generate pivot table: " + error.message);
+    }
+  };
+
+  // Toggle between regular table and pivot table
+  const toggleViewMode = () => {
+    console.log("=== TOGGLING VIEW MODE ===");
+    console.log("Current pivot mode:", isPivotMode);
+    const newMode = !isPivotMode;
+    setIsPivotMode(newMode);
+    console.log("New pivot mode:", newMode);
+
+    // Reset pivot config when switching back to regular table
+    if (isPivotMode) {
+      console.log("Switching to regular table mode - resetting pivot config");
+      setPivotConfig(null);
+      setPivotError(null);
+    }
+  };
+
   return (
     <div className="w-full">
       {/* Toolbar */}
@@ -372,7 +541,7 @@ const DataTable = ({ data, columns }) => {
                 value={globalFilter ?? ""}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 placeholder="Search all columns..."
-                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               />
               <svg
                 className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
@@ -390,29 +559,7 @@ const DataTable = ({ data, columns }) => {
             </div>
           </div>
 
-          {/* Table View Toggle */}
-          <div className="flex items-center bg-gray-100 rounded-md p-1">
-            <button
-              onClick={() => setUseResizableTable(false)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                !useResizableTable
-                  ? "bg-white shadow text-blue-600 font-medium"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Advanced Table
-            </button>
-            <button
-              onClick={() => setUseResizableTable(true)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                useResizableTable
-                  ? "bg-white shadow text-blue-600 font-medium"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Resizable Table
-            </button>
-          </div>
+          {/* Table View Toggle - REMOVED as per requirements */}
         </div>
 
         {/* Right side - Action buttons */}
@@ -421,21 +568,8 @@ const DataTable = ({ data, columns }) => {
           <div className="relative" ref={columnToggleRef}>
             <button
               onClick={() => setShowColumnToggle(!showColumnToggle)}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 transform"
             >
-              <svg
-                className="w-4 h-4 mr-2 inline-block"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M9 17V7m0 10a2 2 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
               Columns
             </button>
 
@@ -450,7 +584,7 @@ const DataTable = ({ data, columns }) => {
                   {table.getAllLeafColumns().map((column) => (
                     <label
                       key={column.id}
-                      className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
                     >
                       <input
                         type="checkbox"
@@ -468,10 +602,22 @@ const DataTable = ({ data, columns }) => {
             )}
           </div>
 
+          {/* Pivot Table Toggle */}
+          <button
+            onClick={toggleViewMode}
+            className={`px-3 py-2 text-sm font-medium rounded-md transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 ${
+              isPivotMode
+                ? "text-white bg-blue-600 border border-blue-600 focus:ring-blue-500"
+                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500"
+            }`}
+          >
+            {isPivotMode ? "Switch to Regular Table" : "Switch to Pivot Table"}
+          </button>
+
           {/* Export CSV Button */}
           <button
             onClick={exportToCSV}
-            className="px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 transform"
           >
             <svg
               className="w-4 h-4 mr-2 inline-block"
@@ -493,7 +639,7 @@ const DataTable = ({ data, columns }) => {
           {(columnFilters.length > 0 || globalFilter) && (
             <button
               onClick={clearAllFilters}
-              className="px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all duration-300 transform"
             >
               Clear Filters
             </button>
@@ -545,17 +691,46 @@ const DataTable = ({ data, columns }) => {
         </div>
       )}
 
-      {/* Table */}
+      {/* Pivot Configuration Panel */}
+      {isPivotMode && !pivotConfig && (
+        <PivotConfigPanel
+          columns={columns}
+          onDataGenerate={handleGeneratePivot}
+          onCancel={() => setIsPivotMode(false)}
+        />
+      )}
+
+      {/* Pivot Error Message */}
+      {pivotError && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
+          {pivotError}
+        </div>
+      )}
+
+      {/* Table or Pivot Table View */}
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        {useResizableTable ? (
-          <ResizableTable data={data} columns={columns} />
-        ) : (
+        {isPivotMode && pivotConfig ? (
+          // Pivot Table View
+          <div className="p-4">
+            {data && data.length > 0 ? (
+              <PivotTableView data={data} pivotConfig={pivotConfig} />
+            ) : (
+              <div className="text-center p-8 text-gray-500">
+                <p>No data available for pivot table</p>
+                <p className="text-sm mt-2">
+                  Please ensure data is loaded correctly
+                </p>
+              </div>
+            )}
+          </div>
+        ) : !isPivotMode ? (
+          // Regular Table View
           <div className="overflow-x-auto">
             <table
               className="min-w-full divide-y divide-gray-200"
               ref={tableRef}
             >
-              <thead className="bg-blue-600">
+              <thead className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-md">
                 <tr>
                   {table.getHeaderGroups()[0].headers.map((header) => {
                     const columnId = header.column.columnDef.accessorKey;
@@ -569,7 +744,7 @@ const DataTable = ({ data, columns }) => {
                     return (
                       <th
                         key={header.id}
-                        className="text-left text-xs font-medium text-white uppercase tracking-wider border-r border-blue-700 last:border-r-0 relative"
+                        className="text-left text-xs font-medium text-white uppercase tracking-wider border-r border-blue-700 last:border-r-0 relative group"
                         style={{
                           width: `${columnSize}px`,
                           minWidth: `${MIN_COLUMN_WIDTH}px`,
@@ -578,7 +753,7 @@ const DataTable = ({ data, columns }) => {
                       >
                         <div className="flex items-center justify-between h-full">
                           <div
-                            className="flex items-center cursor-pointer hover:text-blue-200 px-4 py-3 flex-1"
+                            className="flex items-center cursor-pointer hover:text-blue-200 px-4 py-3 flex-1 transition-colors duration-200"
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             <span className="mr-2 truncate">
@@ -600,7 +775,7 @@ const DataTable = ({ data, columns }) => {
 
                           {/* Resize Handle */}
                           <div
-                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 hover:bg-blue-300 opacity-0 hover:opacity-100 transition-opacity"
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-blue-400 hover:bg-blue-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                             onMouseDown={(e) => {
                               e.preventDefault();
                               setIsResizing(columnId);
@@ -619,7 +794,7 @@ const DataTable = ({ data, columns }) => {
                             >
                               <button
                                 onClick={() => toggleDropdown(columnId)}
-                                className={`p-1 rounded hover:bg-blue-500 transition-colors ${
+                                className={`p-1 rounded hover:bg-blue-500 transition-colors duration-200 transform hover:scale-110 ${
                                   hasFilter
                                     ? "text-blue-200 bg-blue-700"
                                     : "text-blue-300"
@@ -650,7 +825,7 @@ const DataTable = ({ data, columns }) => {
                                     </div>
 
                                     {/* Select All Option */}
-                                    <label className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer">
+                                    <label className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer transition-colors duration-200">
                                       <input
                                         type="checkbox"
                                         checked={
@@ -680,7 +855,7 @@ const DataTable = ({ data, columns }) => {
                                       (value) => (
                                         <label
                                           key={value}
-                                          className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                                          className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer transition-colors duration-200"
                                         >
                                           <input
                                             type="checkbox"
@@ -714,49 +889,56 @@ const DataTable = ({ data, columns }) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {table.getRowModel().rows.map((row, idx) => (
-                  <tr
-                    key={row.id}
-                    className={`hover:bg-gray-50 ${
-                      idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const columnId = cell.column.columnDef.accessorKey;
-                      // Use consistent column sizing
-                      const columnSize = getColumnSize(columnId);
+                {table.getRowModel().rows.map((row, idx) => {
+                  const rowId = row.original.id || row.id;
+                  const isSelected = selectedRowId === rowId;
 
-                      return (
-                        <td
-                          key={cell.id}
-                          className="text-sm text-gray-900 border-r border-gray-100 last:border-r-0"
-                          style={{
-                            width: `${columnSize}px`,
-                            minWidth: `${MIN_COLUMN_WIDTH}px`,
-                            maxWidth: `${MAX_COLUMN_WIDTH}px`,
-                          }}
-                        >
-                          <div
-                            className="px-4 py-3 truncate"
-                            title={String(cell.getValue())}
+                  return (
+                    <tr
+                      key={row.id}
+                      id={`row-${rowId}`}
+                      className={`transition-all duration-200 cursor-pointer transform hover:scale-[1.01] hover:shadow-md ${
+                        idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      } hover:bg-blue-50 ${isSelected ? "bg-yellow-100" : ""}`}
+                      onClick={() => handleRowClick(row)}
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const columnId = cell.column.columnDef.accessorKey;
+                        // Use consistent column sizing
+                        const columnSize = getColumnSize(columnId);
+
+                        return (
+                          <td
+                            key={cell.id}
+                            className="text-sm text-gray-900 border-r border-gray-100 last:border-r-0"
+                            style={{
+                              width: `${columnSize}px`,
+                              minWidth: `${MIN_COLUMN_WIDTH}px`,
+                              maxWidth: `${MAX_COLUMN_WIDTH}px`,
+                            }}
                           >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                            <div
+                              className="px-4 py-3 truncate hover:text-blue-600 transition-colors duration-200"
+                              title={String(cell.getValue())}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
 
         {/* Pagination */}
-        {!useResizableTable && (
+        {!isPivotMode && (
           <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -786,7 +968,7 @@ const DataTable = ({ data, columns }) => {
                 <select
                   value={table.getState().pagination.pageSize}
                   onChange={(e) => table.setPageSize(Number(e.target.value))}
-                  className="rounded border-gray-300 text-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+                  className="rounded border-gray-300 text-sm focus:border-blue-300 focus:ring focus:ring-blue-200 transition-all duration-200 hover:shadow-md"
                 >
                   {[5, 10, 20, 30, 40, 50].map((pageSize) => (
                     <option key={pageSize} value={pageSize}>
@@ -798,14 +980,14 @@ const DataTable = ({ data, columns }) => {
                   <button
                     onClick={() => table.setPageIndex(0)}
                     disabled={!table.getCanPreviousPage()}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
                   >
                     ««
                   </button>
                   <button
                     onClick={() => table.previousPage()}
                     disabled={!table.getCanPreviousPage()}
-                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
                   >
                     ‹
                   </button>
@@ -816,14 +998,14 @@ const DataTable = ({ data, columns }) => {
                   <button
                     onClick={() => table.nextPage()}
                     disabled={!table.getCanNextPage()}
-                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
                   >
                     ›
                   </button>
                   <button
                     onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                     disabled={!table.getCanNextPage()}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
                   >
                     »»
                   </button>
