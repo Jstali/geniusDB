@@ -535,7 +535,7 @@ const DataTable = ({ data = [], columns = [], onRowClick, loading, error }) => {
         {/* Left side - Search and Table Toggle */}
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-64">
-            <div className="relative">
+            <div className="relative text-blue-950">
               <input
                 type="text"
                 value={globalFilter ?? ""}

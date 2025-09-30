@@ -15,35 +15,16 @@ const Header = ({
   onLogout = null,
   menu = DEFAULT_MENU,
   children = null,
+  className = "",
 }) => {
   return (
-    <header className="w-full px-6 py-3 shadow-md bg-white">
+    <header className={`w-full px-6 py-3 shadow-md bg-white ${className}`}>
       <div className="max-w-full mx-auto">
         <div className="flex items-center justify-between">
           {/* Left: Title */}
           <div className="flex items-center">
             <h1 className="text-2xl font-bold text-blue-600">Genius DB</h1>
           </div>
-
-          {/* Center nav - visible on small+ screens inline; uses <nav> with flex gap-6 */}
-          <nav className="hidden sm:flex flex-1 justify-center gap-6">
-            {menu.map((item) => {
-              const isActive = item === active;
-              return (
-                <button
-                  key={item}
-                  onClick={() => onNavigate(item)}
-                  className={`${
-                    isActive
-                      ? "bg-blue-600 text-white px-4 py-2 rounded-lg shadow"
-                      : "text-gray-600 hover:text-blue-600 transition"
-                  }`}
-                >
-                  {item}
-                </button>
-              );
-            })}
-          </nav>
 
           {/* Right: children or logout */}
           <div className="flex items-center">

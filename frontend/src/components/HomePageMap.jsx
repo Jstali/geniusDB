@@ -619,7 +619,7 @@ const HomePageMap = ({
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-700">
+                <h4 className="font-semibold text bg-gray-800">
                   Summary Statistics
                 </h4>
                 {summaryStats && (

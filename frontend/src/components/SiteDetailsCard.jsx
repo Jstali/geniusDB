@@ -30,7 +30,7 @@ const SiteDetailsCard = ({ selectedSite, summaryStats, onClose }) => {
                 <span className="text-sm text-gray-600">
                   Total Substations:
                 </span>
-                <span className="text-sm font-medium">
+                <span className="text-sm text-gray-800 font-medium">
                   {summaryStats.totalSubstations}
                 </span>
               </div>

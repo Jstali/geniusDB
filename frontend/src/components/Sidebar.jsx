@@ -1,14 +1,14 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-const Sidebar = ({ activeTab, setActiveTab }) => {
+const Sidebar = ({ activeTab, setActiveTab, className = "" }) => {
   const navigate = useNavigate();
 
   const menuItems = ["Home", "Summary", "Charts", "Admin Panel"];
 
   return (
-    <aside className="fixed top-16 left-0 right-0 bg-white shadow-md overflow-x-auto z-10">
-      <nav className="p-4">
+    <aside className={`bg-white shadow-md overflow-x-auto z-10 ${className}`}>
+      <nav className="p-4 flex justify-between items-center">
         <ul className="flex space-x-4">
           {menuItems.map((item, index) => (
             <li key={index}>
@@ -25,6 +25,11 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
             </li>
           ))}
         </ul>
+        {activeTab === "Home" && (
+          <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition text-sm font-medium">
+            View Management
+          </button>
+        )}
       </nav>
     </aside>
   );

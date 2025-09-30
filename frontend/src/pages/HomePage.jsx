@@ -161,7 +161,7 @@ const HomePage = () => {
         </div>
 
         {/* Right panel - Site Details */}
-        <div className="w-80 shrink-0 transition-all duration-300 hover:shadow-xl">
+        <div className="w-80 shrink-0 transition-all text-gray-700 duration-300 hover:shadow-xl">
           <SiteDetailsPanel
             selectedSite={selectedSite}
             summaryStats={summaryStats}

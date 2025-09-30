@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
+import Footer from "../components/Footer";
 import HomePage from "./HomePage";
 import MapView from "./MapView";
 import TableView from "../components/TableView";
@@ -36,8 +37,10 @@ const Dashboard = () => {
       case "Admin Panel":
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">Admin Panel</h2>
-            <p>Admin panel content goes here</p>
+            <h2 className="text-2xl text-gray-950 font-bold mb-4">
+              Admin Panel
+            </h2>
+            <p className="text-gray-600">Admin panel content goes here</p>
           </div>
         );
       default:
@@ -68,11 +71,28 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header onLogout={handleLogout} />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Header
+        onLogout={handleLogout}
+        className={
+          activeTab === "Home" ? "fixed top-0 left-0 right-0 z-20" : ""
+        }
+      />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        className={
+          activeTab === "Home" ? "fixed top-16 left-0 right-0 z-10" : ""
+        }
+      />
       <motion.main
-        className="mt-32 p-6"
+        className={`flex-grow p-6 ${
+          activeTab === "Home" ||
+          activeTab === "Summary" ||
+          activeTab === "Charts"
+            ? "pb-16"
+            : ""
+        } ${activeTab === "Home" ? "pt-32" : "mt-4"}`}
         key={activeTab}
         variants={pageVariants}
         initial="initial"
@@ -82,6 +102,16 @@ const Dashboard = () => {
       >
         {renderContent()}
       </motion.main>
+      <Footer
+        showButtons={activeTab === "Home"}
+        className={
+          activeTab === "Home" ||
+          activeTab === "Summary" ||
+          activeTab === "Charts"
+            ? "fixed bottom-0 left-0 right-0 z-10"
+            : ""
+        }
+      />
     </div>
   );
 };
