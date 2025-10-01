@@ -69,7 +69,15 @@ const renderCellContent = (value, columnName) => {
     : String(processedValue);
 };
 
-const DataTable = ({ data = [], columns = [], onRowClick, loading, error }) => {
+const DataTable = ({
+  data = [],
+  columns = [],
+  onRowClick,
+  loading,
+  error,
+  selectedColumns = [], // Add this prop
+  onSelectedColumnsChange, // Add this prop to handle column selection changes
+}) => {
   // Initialize all hooks first to maintain consistent order
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -100,9 +108,8 @@ const DataTable = ({ data = [], columns = [], onRowClick, loading, error }) => {
     data: `Array with ${data.length} items`,
     columns: `Array with ${columns.length} items`,
     loading,
+    selectedColumns,
   });
-
-  // Empty line to maintain structure
 
   // Set equal initial column sizes (Excel-like)
   const DEFAULT_COLUMN_WIDTH = 150;
@@ -123,6 +130,51 @@ const DataTable = ({ data = [], columns = [], onRowClick, loading, error }) => {
       setColumnSizes(initialSizes);
     }
   }, [columns]);
+
+  // Apply column visibility based on selected columns
+  useEffect(() => {
+    if (columns && columns.length > 0) {
+      const visibility = {};
+      columns.forEach((col) => {
+        // If selectedColumns is provided and not empty, only show selected columns
+        if (selectedColumns && selectedColumns.length > 0) {
+          visibility[col.accessorKey] = selectedColumns.includes(
+            col.accessorKey
+          );
+        } else {
+          // By default, all columns are visible
+          visibility[col.accessorKey] = true;
+        }
+      });
+      setColumnVisibility(visibility);
+    }
+  }, [columns, selectedColumns]);
+
+  // Custom column visibility handler that also notifies parent
+  const handleColumnVisibilityChange = (updater) => {
+    // Update internal state
+    setColumnVisibility(updater);
+
+    // If onSelectedColumnsChange is provided, notify parent of changes
+    if (onSelectedColumnsChange && typeof updater === "function") {
+      // Get the updated visibility state
+      const updatedVisibility = updater(columnVisibility);
+
+      // Extract visible column keys
+      const visibleColumns = Object.keys(updatedVisibility).filter(
+        (key) => updatedVisibility[key]
+      );
+
+      // Notify parent of the change
+      onSelectedColumnsChange(visibleColumns);
+    } else if (onSelectedColumnsChange && typeof updater === "object") {
+      // If updater is an object, use it directly
+      const visibleColumns = Object.keys(updater).filter((key) => updater[key]);
+
+      // Notify parent of the change
+      onSelectedColumnsChange(visibleColumns);
+    }
+  };
 
   // Error handling for missing data
   if (loading) {
@@ -238,7 +290,7 @@ const DataTable = ({ data = [], columns = [], onRowClick, loading, error }) => {
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
-    onColumnVisibilityChange: setColumnVisibility,
+    onColumnVisibilityChange: handleColumnVisibilityChange, // Use our custom handler
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -574,22 +626,64 @@ const DataTable = ({ data = [], columns = [], onRowClick, loading, error }) => {
             </button>
 
             {showColumnToggle && (
-              <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+              <div
+                className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="p-2 max-h-60 overflow-y-auto">
                   <div className="pb-2 border-b border-gray-200 mb-2">
                     <p className="text-sm font-medium text-gray-700">
                       Toggle Columns
                     </p>
                   </div>
+                  {/* Select All / Deselect All buttons */}
+                  <div className="flex space-x-2 mb-2 pb-2 border-b border-gray-200">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Select all columns
+                        const newVisibility = {};
+                        table.getAllLeafColumns().forEach((column) => {
+                          newVisibility[column.id] = true;
+                        });
+                        handleColumnVisibilityChange(newVisibility);
+                      }}
+                      className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200"
+                    >
+                      ✅ Select All
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Deselect all columns (but keep at least one)
+                        const allColumns = table.getAllLeafColumns();
+                        const newVisibility = {};
+
+                        // Keep the first column visible, hide the rest
+                        allColumns.forEach((column, index) => {
+                          newVisibility[column.id] = index === 0;
+                        });
+
+                        handleColumnVisibilityChange(newVisibility);
+                      }}
+                      className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded hover:bg-red-200"
+                    >
+                      ❌ Deselect All
+                    </button>
+                  </div>
                   {table.getAllLeafColumns().map((column) => (
                     <label
                       key={column.id}
                       className="flex items-center px-2 py-1 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <input
                         type="checkbox"
                         checked={column.getIsVisible()}
-                        onChange={column.getToggleVisibilityHandler()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          column.getToggleVisibilityHandler()(e);
+                        }}
                         className="mr-2 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
                       <span className="text-sm text-gray-700">

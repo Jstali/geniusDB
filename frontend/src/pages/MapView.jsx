@@ -5,7 +5,8 @@ import SiteDetailsCard from "../components/SiteDetailsCard";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
-const MapView = () => {
+const MapView = ({ activeView = null }) => {
+  // Add activeView prop
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -139,6 +140,7 @@ const MapView = () => {
                 data={data}
                 filters={filters}
                 onMarkerClick={handleMarkerClick}
+                activeView={activeView} // Pass active view to MapSection
               />
             </div>
           </div>

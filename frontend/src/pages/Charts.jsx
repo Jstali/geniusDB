@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import ChartBuilder from "../components/ChartBuilder";
+import CustomChartBuilder from "../components/CustomChartBuilder";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 const Charts = () => {
   const [data, setData] = useState([]);
+  const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,14 +21,28 @@ const Charts = () => {
         const json = await res.json();
         if (Array.isArray(json)) {
           setData(json);
+
+          // Generate columns from the data
+          if (json.length > 0) {
+            const keys = Object.keys(json[0]);
+            const cols = keys.map((k) => ({
+              accessorKey: k,
+              header: String(k)
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (c) => c.toUpperCase()),
+            }));
+            setColumns(cols);
+          }
         } else {
           setData([]);
+          setColumns([]);
           setError("Unexpected data format from backend");
         }
       } catch (err) {
         console.error("Error fetching transformer data:", err);
         setError("Failed to fetch site data. Please check backend.");
         setData([]);
+        setColumns([]);
       } finally {
         setLoading(false);
       }
@@ -55,7 +70,18 @@ const Charts = () => {
     );
   }
 
-  return <ChartBuilder data={data} />;
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Charts</h1>
+        <p className="text-gray-600">
+          Build custom charts from your data. Select a chart type and configure
+          the axes.
+        </p>
+      </div>
+      <CustomChartBuilder data={data} columns={columns} />
+    </div>
+  );
 };
 
 export default Charts;

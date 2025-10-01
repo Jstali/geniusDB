@@ -66,7 +66,7 @@ const HomePageMap = ({
   const [filters, setFilters] = useState({
     siteName: "",
     voltage: [],
-    powerRange: { min: 0, max: 100 },
+    powerRange: { min: 0, max: 200 },
     operators: [],
   });
   const [voltageLevels, setVoltageLevels] = useState([]);
@@ -82,12 +82,12 @@ const HomePageMap = ({
         ...new Set(
           substationData.map((item) => item.site_voltage).filter(Boolean)
         ),
-      ];
+      ].sort((a, b) => a - b);
       const ops = [
         ...new Set(
           substationData.map((item) => item.licence_area).filter(Boolean)
         ),
-      ];
+      ].sort();
       setVoltageLevels(voltages);
       setOperators(ops);
     }
@@ -158,31 +158,35 @@ const HomePageMap = ({
 
   const filteredMapData = useMemo(() => {
     return mapData.filter((site) => {
+      // Site name filter
       if (
         filters.siteName &&
         !site.site_name?.toLowerCase().includes(filters.siteName.toLowerCase())
       )
         return false;
+
+      // Voltage filter
       if (
         filters.voltage.length > 0 &&
         !filters.voltage.includes(site.site_voltage)
       )
         return false;
+
+      // Power range filter
       if (
         site.generation_headroom !== null &&
         site.generation_headroom !== undefined
       ) {
-        if (
-          site.generation_headroom < filters.powerRange.min ||
-          site.generation_headroom > filters.powerRange.max
-        )
-          return false;
+        if (site.generation_headroom > filters.powerRange.max) return false;
       }
+
+      // Operator filter
       if (
         filters.operators.length > 0 &&
         !filters.operators.includes(site.licence_area)
       )
         return false;
+
       return true;
     });
   }, [mapData, filters]);
@@ -234,16 +238,29 @@ const HomePageMap = ({
     setFilters((prev) => ({ ...prev, siteName }));
   };
 
-  const handleVoltageFilter = (voltageLevels) => {
-    setFilters((prev) => ({ ...prev, voltage: voltageLevels }));
+  const handleVoltageFilter = (voltageLevel, isChecked) => {
+    setFilters((prev) => ({
+      ...prev,
+      voltage: isChecked
+        ? [...prev.voltage, voltageLevel]
+        : prev.voltage.filter((v) => v !== voltageLevel),
+    }));
   };
 
-  const handlePowerRangeChange = (powerRange) => {
-    setFilters((prev) => ({ ...prev, powerRange }));
+  const handlePowerRangeChange = (maxValue) => {
+    setFilters((prev) => ({
+      ...prev,
+      powerRange: { ...prev.powerRange, max: maxValue },
+    }));
   };
 
-  const handleOperatorFilter = (operators) => {
-    setFilters((prev) => ({ ...prev, operators }));
+  const handleOperatorFilter = (operator, isChecked) => {
+    setFilters((prev) => ({
+      ...prev,
+      operators: isChecked
+        ? [...prev.operators, operator]
+        : prev.operators.filter((o) => o !== operator),
+    }));
   };
 
   if (loading) {
@@ -337,37 +354,52 @@ const HomePageMap = ({
             />
           </div>
 
-          {/* Point of Connection Filter */}
+          {/* Voltage Level Filter */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">
-              Point of Connection
+              Voltage Level
             </label>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-600 min-w-[60px]">
-                less than:
-              </span>
-              <input
-                type="number"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                placeholder="meters"
-              />
+            <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
+              {voltageLevels.map((voltage) => (
+                <label key={voltage} className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    checked={filters.voltage.includes(voltage)}
+                    onChange={(e) =>
+                      handleVoltageFilter(voltage, e.target.checked)
+                    }
+                  />
+                  <span className="text-sm text-gray-700">{voltage} kV</span>
+                </label>
+              ))}
             </div>
           </div>
 
           {/* Available Power Filter */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">
-              Available Power
+              Available Power (MW)
             </label>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-600 min-w-[70px]">
-                greater than:
-              </span>
+            <div className="px-2">
               <input
-                type="number"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                placeholder="MVA"
+                type="range"
+                min="0"
+                max="200"
+                step="1"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                value={filters.powerRange.max}
+                onChange={(e) =>
+                  handlePowerRangeChange(parseInt(e.target.value))
+                }
               />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0 MW</span>
+                <span className="font-medium">
+                  Show sites with ≤ {filters.powerRange.max} MW
+                </span>
+                <span>200 MW</span>
+              </div>
             </div>
           </div>
 
@@ -376,7 +408,7 @@ const HomePageMap = ({
             <label className="block text-sm font-semibold text-gray-700">
               Network Operator
             </label>
-            <div className="space-y-3 pl-1">
+            <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
               {operators.map((operator) => (
                 <label key={operator} className="flex items-center gap-3">
                   <input
@@ -384,11 +416,7 @@ const HomePageMap = ({
                     className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                     checked={filters.operators.includes(operator)}
                     onChange={(e) =>
-                      handleOperatorFilter(
-                        e.target.checked
-                          ? [...filters.operators, operator]
-                          : filters.operators.filter((o) => o !== operator)
-                      )
+                      handleOperatorFilter(operator, e.target.checked)
                     }
                   />
                   <span className="text-sm text-gray-700">{operator}</span>

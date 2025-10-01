@@ -1,4 +1,5 @@
 import React from "react";
+import SavedViewsDropdown from "./SavedViewsDropdown";
 
 const DEFAULT_MENU = [
   "Home",
@@ -16,6 +17,7 @@ const Header = ({
   menu = DEFAULT_MENU,
   children = null,
   className = "",
+  onViewLoad = null, // Add onViewLoad prop
 }) => {
   return (
     <header className={`w-full px-6 py-3 shadow-md bg-white ${className}`}>
@@ -30,14 +32,19 @@ const Header = ({
           <div className="flex items-center">
             {children ? (
               children
-            ) : onLogout ? (
-              <button
-                onClick={onLogout}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition"
-              >
-                Logout
-              </button>
-            ) : null}
+            ) : (
+              <div className="flex items-center">
+                {onViewLoad && <SavedViewsDropdown onLoadView={onViewLoad} />}
+                {onLogout ? (
+                  <button
+                    onClick={onLogout}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition ml-2"
+                  >
+                    Logout
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
 

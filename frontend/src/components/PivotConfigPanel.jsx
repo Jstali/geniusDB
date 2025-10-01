@@ -264,7 +264,10 @@ const PivotConfigPanel = ({ columns, onDataGenerate, onCancel }) => {
               </p>
             ) : (
               values.map((value, index) => (
-                <div key={index} className="flex items-center mb-3 last:mb-0">
+                <div
+                  key={`value-${index}-${value}`}
+                  className="flex items-center mb-3 last:mb-0"
+                >
                   <select
                     value={value}
                     onChange={(e) => handleValueChange(index, e.target.value)}
@@ -272,7 +275,7 @@ const PivotConfigPanel = ({ columns, onDataGenerate, onCancel }) => {
                   >
                     {columnOptions.map((option) => (
                       <option
-                        key={`value-${option.value}`}
+                        key={`value-option-${index}-${option.value}`}
                         value={option.value}
                       >
                         {option.label}

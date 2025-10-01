@@ -51,120 +51,252 @@ const createMarkerIcon = (color) => {
   });
 };
 
-const MapSection = ({ data = [], filters = {}, onMarkerClick }) => {
+const MapSection = ({
+  data = [],
+  filters = {},
+  onMarkerClick,
+  activeView = null,
+}) => {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const mapRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
-  // Apply filters to the data
-  const filteredData = useMemo(() => {
-    if (!data || data.length === 0) {
-      return [];
+  // Get API base URL from environment or default to localhost:8000
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+
+  // Convert frontend filters to backend format
+  const convertFilters = (frontendFilters) => {
+    const backendFilters = {};
+
+    // Site Name filter
+    if (frontendFilters.siteName && frontendFilters.siteName.trim() !== "") {
+      backendFilters["site_name"] = [
+        { op: "contains", value: frontendFilters.siteName.trim() },
+      ];
     }
 
-    return data.filter((site) => {
-      // Site name filter
-      if (filters.siteName && filters.siteName.trim() !== "") {
-        const siteName = site["Site Name"] || "";
-        if (!siteName.toLowerCase().includes(filters.siteName.toLowerCase())) {
-          return false;
-        }
-      }
+    // Voltage Level filter
+    if (frontendFilters.voltage && frontendFilters.voltage.length > 0) {
+      backendFilters["voltage_level"] = [
+        { op: "in", value: frontendFilters.voltage },
+      ];
+    }
 
-      // Voltage filter
-      if (filters.voltage && filters.voltage.length > 0) {
-        const siteVoltage = site["Site Voltage"];
-        if (siteVoltage && !filters.voltage.includes(siteVoltage)) {
-          return false;
-        }
-      }
+    // Available Power filter
+    if (
+      frontendFilters.powerRange &&
+      frontendFilters.powerRange.max !== undefined
+    ) {
+      backendFilters["available_power"] = [
+        { op: ">", value: frontendFilters.powerRange.max },
+      ];
+    }
 
-      // Power range filter
-      if (filters.powerRange) {
-        const headroom = site["Generation Headroom Mw"];
-        if (headroom !== undefined && headroom !== null && !isNaN(headroom)) {
-          if (headroom > filters.powerRange.max) {
-            return false;
-          }
-        }
-      }
+    // Network Operator filter
+    if (frontendFilters.operators && frontendFilters.operators.length > 0) {
+      backendFilters["network_operator"] = [
+        { op: "in", value: frontendFilters.operators },
+      ];
+    }
 
-      // Operator filter
-      if (filters.operators && filters.operators.length > 0) {
-        const licenceArea = site["Licence Area"];
-        if (licenceArea && !filters.operators.includes(licenceArea)) {
-          return false;
-        }
-      }
+    return backendFilters;
+  };
 
-      // Check if site has valid coordinates
-      const spatialCoords = site["Spatial Coordinates"];
-      if (!spatialCoords || spatialCoords === "\\N") {
-        return false;
-      }
-
-      return true;
-    });
-  }, [data, filters]);
-
+  // Fetch filtered map data from backend when filters or active view changes
   useEffect(() => {
-    const processMapData = () => {
+    const fetchFilteredMapData = async () => {
+      // Cancel any ongoing requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Create new abort controller for this request
+      abortControllerRef.current = new AbortController();
+
       try {
         setLoading(true);
-        console.log("Processing map data with filters...", {
-          filters,
-          dataLength: data.length,
-          filteredDataLength: filteredData.length,
-        });
+        setError(null);
 
-        // Transform the filtered data into markers
-        const transformedMarkers = filteredData
-          .map((site, index) => {
-            // Get spatial coordinates (format: "lat, lng")
+        // If we have an active view, use the new backend endpoint
+        if (activeView) {
+          console.log(
+            "MapSection: Fetching filtered map data with active view",
+            {
+              activeView,
+              filters,
+            }
+          );
+
+          // Convert frontend filters to backend format
+          const backendFilters = convertFilters(filters);
+
+          // Log filters before sending to backend
+          console.log("Sending filters to backend:", backendFilters);
+
+          // Prepare the request payload with the correct structure
+          const payload = {
+            filters: backendFilters,
+            selected_columns: [
+              "site_name",
+              "latitude",
+              "longitude",
+              "voltage_level",
+              "available_power",
+              "network_operator",
+            ],
+          };
+
+          // Make request to the new backend endpoint
+          const response = await fetch(
+            `${API_BASE}/api/views/${activeView}/map-data?user_id=1`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(payload),
+              signal: abortControllerRef.current.signal,
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          console.log("MapSection: Received filtered map data", result);
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          // Transform backend response to markers
+          const transformedMarkers = result.rows.map((row, index) => {
+            return {
+              id: `${row.site_name}-${index}`,
+              position: [row.latitude, row.longitude],
+              popupText: `${row.site_name}`,
+              siteName: row.site_name,
+              siteVoltage: row.voltage_level,
+              generationHeadroom: row.available_power,
+              licenceArea: row.network_operator,
+              color: getMarkerColor(row.available_power),
+              ...row,
+            };
+          });
+
+          setMarkers(transformedMarkers);
+        } else {
+          // Fallback to client-side filtering if no active view
+          console.log(
+            "MapSection: Processing map data with client-side filters...",
+            {
+              filters,
+              dataLength: data.length,
+            }
+          );
+
+          // Apply filters to the data
+          const filteredData = data.filter((site) => {
+            // Site name filter
+            if (filters.siteName && filters.siteName.trim() !== "") {
+              const siteName = site["Site Name"] || "";
+              if (
+                !siteName.toLowerCase().includes(filters.siteName.toLowerCase())
+              ) {
+                return false;
+              }
+            }
+
+            // Voltage filter
+            if (filters.voltage && filters.voltage.length > 0) {
+              const siteVoltage = site["Site Voltage"];
+              if (siteVoltage && !filters.voltage.includes(siteVoltage)) {
+                return false;
+              }
+            }
+
+            // Power range filter
+            if (filters.powerRange) {
+              const headroom = site["Generation Headroom Mw"];
+              if (
+                headroom !== undefined &&
+                headroom !== null &&
+                !isNaN(headroom)
+              ) {
+                if (headroom > filters.powerRange.max) {
+                  return false;
+                }
+              }
+            }
+
+            // Operator filter
+            if (filters.operators && filters.operators.length > 0) {
+              const licenceArea = site["Licence Area"];
+              if (licenceArea && !filters.operators.includes(licenceArea)) {
+                return false;
+              }
+            }
+
+            // Check if site has valid coordinates
             const spatialCoords = site["Spatial Coordinates"];
             if (!spatialCoords || spatialCoords === "\\N") {
-              return null;
+              return false;
             }
 
-            try {
-              const coords = spatialCoords.trim().split(", ");
-              if (coords.length !== 2) return null;
+            return true;
+          });
 
-              const lat = parseFloat(coords[0]);
-              const lng = parseFloat(coords[1]);
+          // Transform the filtered data into markers
+          const transformedMarkers = filteredData
+            .map((site, index) => {
+              // Get spatial coordinates (format: "lat, lng")
+              const spatialCoords = site["Spatial Coordinates"];
+              if (!spatialCoords || spatialCoords === "\\N") {
+                return null;
+              }
 
-              if (isNaN(lat) || isNaN(lng)) return null;
+              try {
+                const coords = spatialCoords.trim().split(", ");
+                if (coords.length !== 2) return null;
 
-              const siteName = site["Site Name"] || "Unknown Site";
-              const generationHeadroom = site["Generation Headroom Mw"];
+                const lat = parseFloat(coords[0]);
+                const lng = parseFloat(coords[1]);
 
-              return {
-                id: `${siteName}-${index}`,
-                position: [lat, lng],
-                popupText: `${siteName} (${site["Site Type"] || "Unknown"})`,
-                siteName: siteName,
-                siteType: site["Site Type"] || "Unknown",
-                siteVoltage: site["Site Voltage"] || "Unknown",
-                county: site["County"] || "Unknown",
-                generationHeadroom: generationHeadroom,
-                color: getMarkerColor(generationHeadroom),
-                ...site,
-              };
-            } catch (e) {
-              console.error("Error processing site coordinates:", site, e);
-              return null;
-            }
-          })
-          .filter((marker) => marker !== null);
+                if (isNaN(lat) || isNaN(lng)) return null;
 
-        setMarkers(transformedMarkers);
-        console.log("Markers set:", transformedMarkers.length);
+                const siteName = site["Site Name"] || "Unknown Site";
+                const generationHeadroom = site["Generation Headroom Mw"];
+
+                return {
+                  id: `${siteName}-${index}`,
+                  position: [lat, lng],
+                  popupText: `${siteName} (${site["Site Type"] || "Unknown"})`,
+                  siteName: siteName,
+                  siteType: site["Site Type"] || "Unknown",
+                  siteVoltage: site["Site Voltage"] || "Unknown",
+                  county: site["County"] || "Unknown",
+                  generationHeadroom: generationHeadroom,
+                  color: getMarkerColor(generationHeadroom),
+                  ...site,
+                };
+              } catch (e) {
+                console.error("Error processing site coordinates:", site, e);
+                return null;
+              }
+            })
+            .filter((marker) => marker !== null);
+
+          setMarkers(transformedMarkers);
+          console.log("MapSection: Markers set:", transformedMarkers.length);
+        }
 
         // Auto-fit map to markers
-        if (mapRef.current && transformedMarkers.length > 0) {
+        if (mapRef.current && markers.length > 0) {
           const bounds = L.latLngBounds(
-            transformedMarkers.map((marker) => marker.position)
+            markers.map((marker) => marker.position)
           );
 
           setTimeout(() => {
@@ -177,15 +309,27 @@ const MapSection = ({ data = [], filters = {}, onMarkerClick }) => {
           }, 100);
         }
       } catch (err) {
-        console.error("Error processing map data:", err);
-        setError("Failed to process map data");
+        if (err.name === "AbortError") {
+          console.log("MapSection: Request was cancelled");
+          return; // Exit early if request was cancelled
+        }
+
+        console.error("MapSection: Error processing map data:", err);
+        setError("Failed to process map data: " + err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    processMapData();
-  }, [filteredData]);
+    fetchFilteredMapData();
+
+    // Cleanup function to cancel any ongoing requests
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [data, filters, activeView]);
 
   useEffect(() => {
     // Handle window resize
@@ -219,6 +363,18 @@ const MapSection = ({ data = [], filters = {}, onMarkerClick }) => {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
           <strong className="font-bold">Error! </strong>
           <span className="block sm:inline">{error}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show "No sites match these filters" message when no markers
+  if (markers.length === 0 && !loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-white rounded-2xl shadow-lg">
+        <div className="text-gray-600 text-center">
+          <p className="font-medium">No sites match these filters.</p>
+          <p className="text-sm mt-1">Try adjusting your filter criteria.</p>
         </div>
       </div>
     );

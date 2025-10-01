@@ -13,9 +13,9 @@ const SidebarFilters = ({
   ],
   currentFilters = {
     siteName: "",
-    voltage: [],
-    powerRange: { min: 0, max: 200 },
-    operators: [],
+    voltage: "",
+    powerRange: { min: 0 },
+    operators: "",
   },
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -24,22 +24,16 @@ const SidebarFilters = ({
     onSiteNameSearch(e.target.value);
   };
 
-  const handleVoltageChange = (voltage, isChecked) => {
-    const newFilters = isChecked
-      ? [...currentFilters.voltage, voltage]
-      : currentFilters.voltage.filter((v) => v !== voltage);
-    onVoltageFilter(newFilters);
+  const handleVoltageChange = (e) => {
+    onVoltageFilter(e.target.value);
   };
 
-  const handlePowerRangeChange = (max) => {
-    onPowerRangeChange({ min: 0, max });
+  const handlePowerRangeChange = (min) => {
+    onPowerRangeChange({ min: parseFloat(min) });
   };
 
-  const handleOperatorChange = (operator, isChecked) => {
-    const newFilters = isChecked
-      ? [...currentFilters.operators, operator]
-      : currentFilters.operators.filter((o) => o !== operator);
-    onOperatorFilter(newFilters);
+  const handleOperatorChange = (e) => {
+    onOperatorFilter(e.target.value);
   };
 
   return (
@@ -72,80 +66,56 @@ const SidebarFilters = ({
 
           {/* Voltage Level Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Voltage Level
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              value={currentFilters.voltage || ""}
+              onChange={handleVoltageChange}
+            >
+              <option value="">All Voltage Levels</option>
               {voltageLevels.map((voltage) => (
-                <label
-                  key={voltage}
-                  className="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    checked={currentFilters.voltage.includes(voltage)}
-                    onChange={(e) =>
-                      handleVoltageChange(voltage, e.target.checked)
-                    }
-                  />
-                  <span className="ml-3 text-sm text-gray-700">
-                    {voltage} kV
-                  </span>
-                </label>
+                <option key={voltage} value={voltage}>
+                  {voltage} kV
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Available Power Range Slider */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Available Power (MW)
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Available Power (MW) &ge;
             </label>
-            <div className="px-2">
-              <input
-                type="range"
-                min="0"
-                max="200"
-                step="1"
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                value={currentFilters.powerRange?.max ?? 200}
-                onChange={(e) =>
-                  handlePowerRangeChange(parseInt(e.target.value))
-                }
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
-                <span>0 MW</span>
-                <span className="font-medium">
-                  Show sites with ≤ {currentFilters.powerRange?.max ?? 200} MW
-                </span>
-              </div>
-            </div>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              value={currentFilters.powerRange?.min ?? 0}
+              onChange={(e) => handlePowerRangeChange(e.target.value)}
+            />
           </div>
 
           {/* Network Operators Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Network Operators
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Network Operator
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              value={currentFilters.operators || ""}
+              onChange={handleOperatorChange}
+            >
+              <option value="">All Operators</option>
               {operators.map((operator) => (
-                <label
-                  key={operator}
-                  className="flex items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    checked={currentFilters.operators.includes(operator)}
-                    onChange={(e) =>
-                      handleOperatorChange(operator, e.target.checked)
-                    }
-                  />
-                  <span className="ml-3 text-sm text-gray-700">{operator}</span>
-                </label>
+                <option key={operator} value={operator}>
+                  {operator}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
         </div>
       )}

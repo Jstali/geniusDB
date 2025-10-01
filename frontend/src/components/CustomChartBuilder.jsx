@@ -1,16 +1,139 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Plot from "react-plotly.js";
 
-const CustomChartBuilder = ({ data, columns }) => {
-  const [chartType, setChartType] = useState("bar");
-  const [xAxis, setXAxis] = useState("");
-  const [yAxis, setYAxis] = useState("");
+const CustomChartBuilder = ({
+  data,
+  columns,
+  selectedColumns = [],
+  filters = {},
+  chartType, // Add this prop
+  xAxis, // Add this prop
+  yAxis, // Add this prop
+}) => {
+  const [chartTypeState, setChartTypeState] = useState(chartType || "bar");
+  const [xAxisState, setXAxisState] = useState(xAxis || "");
+  const [yAxisState, setYAxisState] = useState(yAxis || "");
+
+  // Effect to handle saved view configuration changes
+  useEffect(() => {
+    console.log("=== CustomChartBuilder: useEffect for saved view ===");
+    console.log("chartType:", chartType);
+    console.log("xAxis:", xAxis);
+    console.log("yAxis:", yAxis);
+
+    // Update chart configuration when saved view is loaded
+    if (chartType) {
+      setChartTypeState(chartType);
+    }
+    if (xAxis) {
+      setXAxisState(xAxis);
+    }
+    if (yAxis) {
+      setYAxisState(yAxis);
+    }
+
+    // Auto-generate chart if we have a complete configuration
+    if (chartType && xAxis && (yAxis || chartType === "pie")) {
+      console.log("Auto-generating chart with saved configuration");
+      // Delay slightly to ensure state updates are processed
+      setTimeout(() => {
+        generateChart();
+      }, 100);
+    }
+  }, [chartType, xAxis, yAxis]);
   const [generatedChart, setGeneratedChart] = useState(null);
   const [error, setError] = useState("");
   const [presetChart, setPresetChart] = useState(""); // For predefined charts
   const [chartData, setChartData] = useState(data || []); // Local data state
   const [chartColumns, setChartColumns] = useState(columns || []); // Local columns state
   const [loading, setLoading] = useState(false); // Loading state for data fetching
+
+  // Update state when props change
+  useEffect(() => {
+    if (chartType) setChartTypeState(chartType);
+    if (xAxis) setXAxisState(xAxis);
+    if (yAxis) setYAxisState(yAxis);
+  }, [chartType, xAxis, yAxis]);
+
+  // Apply filters to the data
+  const filteredData = useMemo(() => {
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // If no filters, return the data as is
+    if (!filters || Object.keys(filters).length === 0) {
+      return data;
+    }
+
+    // Apply filters from the view configuration
+    return data.filter((item) => {
+      // Apply filters from the view configuration
+      for (const [column, columnFilters] of Object.entries(filters)) {
+        if (columnFilters && columnFilters.length > 0) {
+          const itemValue = item[column];
+
+          // Check if any filter matches
+          const matches = columnFilters.some((filter) => {
+            const { operator, value } = filter;
+
+            switch (operator) {
+              case "=":
+                return String(itemValue) === String(value);
+              case "!=":
+                return String(itemValue) !== String(value);
+              case ">":
+                return Number(itemValue) > Number(value);
+              case "<":
+                return Number(itemValue) < Number(value);
+              case ">=":
+                return Number(itemValue) >= Number(value);
+              case "<=":
+                return Number(itemValue) <= Number(value);
+              case "contains":
+                return String(itemValue)
+                  .toLowerCase()
+                  .includes(String(value).toLowerCase());
+              case "in":
+                return String(value)
+                  .split(",")
+                  .map((v) => v.trim())
+                  .includes(String(itemValue));
+              default:
+                return true;
+            }
+          });
+
+          if (!matches) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [data, filters]);
+
+  // Apply selected columns to the data
+  const viewFilteredData = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) {
+      return [];
+    }
+
+    // If no selected columns, return the filtered data as is
+    if (!selectedColumns || selectedColumns.length === 0) {
+      return filteredData;
+    }
+
+    // Return only the selected columns
+    return filteredData.map((item) => {
+      const newItem = {};
+      selectedColumns.forEach((col) => {
+        newItem[col] = item[col];
+      });
+      return newItem;
+    });
+  }, [filteredData, selectedColumns]);
 
   // Fetch data from the database when component mounts and no data is provided
   useEffect(() => {
@@ -24,23 +147,34 @@ const CustomChartBuilder = ({ data, columns }) => {
     } else if (data && data.length > 0) {
       // Use provided data
       console.log("CustomChartBuilder: Using provided data");
-      setChartData(data);
+      setChartData(viewFilteredData);
       // Generate columns from the provided data if columns aren't provided
       if (!columns || columns.length === 0) {
-        const generatedColumns = Object.keys(data[0]).map((key) => ({
-          accessorKey: key,
-          header: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
-        }));
+        const generatedColumns = Object.keys(viewFilteredData[0]).map(
+          (key) => ({
+            accessorKey: key,
+            header:
+              key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
+          })
+        );
         console.log(
           "CustomChartBuilder: Generated columns from data:",
           generatedColumns
         );
         setChartColumns(generatedColumns);
       } else {
-        setChartColumns(columns || []);
+        // Filter columns to only include selected columns
+        if (selectedColumns && selectedColumns.length > 0) {
+          const filteredColumns = columns.filter((col) =>
+            selectedColumns.includes(col.accessorKey)
+          );
+          setChartColumns(filteredColumns);
+        } else {
+          setChartColumns(columns || []);
+        }
       }
     }
-  }, [data, columns]);
+  }, [data, columns, viewFilteredData, selectedColumns]);
 
   const fetchData = async () => {
     try {
@@ -108,6 +242,11 @@ const CustomChartBuilder = ({ data, columns }) => {
       chartColumns ? chartColumns.length : "No columns"
     );
     console.log("Preset chart selected:", presetChart);
+    console.log("Selected columns:", selectedColumns);
+    console.log("Filters:", filters);
+    console.log("Chart type:", chartTypeState);
+    console.log("X axis:", xAxisState);
+    console.log("Y axis:", yAxisState);
 
     // Log first few items of data if available
     if (chartData && chartData.length > 0) {
@@ -122,17 +261,41 @@ const CustomChartBuilder = ({ data, columns }) => {
     }
 
     console.log("=====================================");
-  }, [data, columns, chartData, chartColumns, presetChart]);
+  }, [
+    data,
+    columns,
+    chartData,
+    chartColumns,
+    presetChart,
+    selectedColumns,
+    filters,
+    chartTypeState,
+    xAxisState,
+    yAxisState,
+  ]);
 
-  // Get column options from chartColumns state or derive from chartData
+  // Get column options based on saved view configuration
   const columnOptions = useMemo(() => {
     console.log("=== Column Options Generation ===");
     console.log("chartColumns:", chartColumns);
     console.log("chartData:", chartData);
+    console.log("selectedColumns:", selectedColumns);
 
-    // Always use chartColumns if available, otherwise derive from chartData
+    // If selectedColumns is provided (saved view loaded), only show those columns
+    if (selectedColumns && selectedColumns.length > 0) {
+      console.log("Using selectedColumns from saved view");
+      // Filter chartColumns to only include selected columns
+      const filteredColumns = chartColumns.filter((col) =>
+        selectedColumns.includes(col.accessorKey)
+      );
+      console.log("Filtered column options:", filteredColumns);
+      console.log("===============================");
+      return filteredColumns;
+    }
+
+    // If no selected columns (no saved view), show all columns
     if (chartColumns && chartColumns.length > 0) {
-      console.log("Using chartColumns");
+      console.log("Using all chartColumns (no saved view)");
       const result = chartColumns.map((col) => ({
         accessorKey: col.accessorKey,
         header: col.header,
@@ -154,39 +317,43 @@ const CustomChartBuilder = ({ data, columns }) => {
     console.log("No columns or data available");
     console.log("===============================");
     return [];
-  }, [chartData, chartColumns]);
+  }, [chartData, chartColumns, selectedColumns]);
 
   // Filter column options for X axis (exclude selected Y axis)
   const xColumnOptions = useMemo(() => {
     console.log("=== X Column Options ===");
-    console.log("yAxis:", yAxis);
+    console.log("yAxis:", yAxisState);
     console.log("columnOptions:", columnOptions);
-    if (!yAxis) {
+    if (!yAxisState) {
       console.log("No yAxis selected, returning all column options");
       console.log("========================");
       return columnOptions;
     }
-    const result = columnOptions.filter((col) => col.accessorKey !== yAxis);
+    const result = columnOptions.filter(
+      (col) => col.accessorKey !== yAxisState
+    );
     console.log("Filtered xColumnOptions:", result);
     console.log("========================");
     return result;
-  }, [columnOptions, yAxis]);
+  }, [columnOptions, yAxisState]);
 
   // Filter column options for Y axis (exclude selected X axis)
   const yColumnOptions = useMemo(() => {
     console.log("=== Y Column Options ===");
-    console.log("xAxis:", xAxis);
+    console.log("xAxis:", xAxisState);
     console.log("columnOptions:", columnOptions);
-    if (!xAxis) {
+    if (!xAxisState) {
       console.log("No xAxis selected, returning all column options");
       console.log("========================");
       return columnOptions;
     }
-    const result = columnOptions.filter((col) => col.accessorKey !== xAxis);
+    const result = columnOptions.filter(
+      (col) => col.accessorKey !== xAxisState
+    );
     console.log("Filtered yColumnOptions:", result);
     console.log("========================");
     return result;
-  }, [columnOptions, xAxis]);
+  }, [columnOptions, xAxisState]);
 
   // Predefined chart configurations
   const presetCharts = [
@@ -228,10 +395,20 @@ const CustomChartBuilder = ({ data, columns }) => {
   const generateChart = () => {
     console.log("=== Generate Chart Called ===");
     console.log("Preset chart:", presetChart);
-    console.log("Chart type:", chartType);
-    console.log("X axis:", xAxis);
-    console.log("Y axis:", yAxis);
+    console.log("Chart type:", chartTypeState);
+    console.log("X axis:", xAxisState);
+    console.log("Y axis:", yAxisState);
     console.log("Data:", chartData);
+
+    // Validation for saved view with insufficient columns
+    if (selectedColumns && selectedColumns.length < 2) {
+      setError("Not enough columns in this view to generate a chart.");
+      console.log(
+        "Error: Not enough columns in this view to generate a chart."
+      );
+      console.log("=========================");
+      return;
+    }
 
     // Validation
     if (!chartData || chartData.length === 0) {
@@ -252,21 +429,21 @@ const CustomChartBuilder = ({ data, columns }) => {
     }
 
     // Handle custom charts
-    if (!xAxis) {
-      setError("Please select an X axis");
+    if (!xAxisState) {
+      setError("Please select both X and Y axes from the saved columns.");
       console.log("Error: No X axis selected");
       console.log("=========================");
       return;
     }
 
-    if (!yAxis && chartType !== "pie") {
-      setError("Please select a Y axis");
+    if (!yAxisState && chartTypeState !== "pie") {
+      setError("Please select both X and Y axes from the saved columns.");
       console.log("Error: No Y axis selected for non-pie chart");
       console.log("=========================");
       return;
     }
 
-    if (chartType === "pie" && !xAxis) {
+    if (chartTypeState === "pie" && !xAxisState) {
       setError("Please select a category for pie chart");
       console.log("Error: No category selected for pie chart");
       console.log("=========================");
@@ -276,11 +453,11 @@ const CustomChartBuilder = ({ data, columns }) => {
     setError("");
 
     // Find the actual keys for the selected headers
-    const xColumn = columnOptions.find((col) => col.accessorKey === xAxis);
-    const yColumn = columnOptions.find((col) => col.accessorKey === yAxis);
+    const xColumn = columnOptions.find((col) => col.accessorKey === xAxisState);
+    const yColumn = columnOptions.find((col) => col.accessorKey === yAxisState);
 
-    const xKey = xColumn ? xColumn.accessorKey : xAxis;
-    const yKey = yColumn ? yColumn.accessorKey : yAxis;
+    const xKey = xColumn ? xColumn.accessorKey : xAxisState;
+    const yKey = yColumn ? yColumn.accessorKey : yAxisState;
 
     console.log("X key:", xKey);
     console.log("Y key:", yKey);
@@ -288,7 +465,7 @@ const CustomChartBuilder = ({ data, columns }) => {
     // Prepare data for plotting
     let xValues = chartData.map((item) => item[xKey]);
     let yValues =
-      chartType !== "pie" ? chartData.map((item) => item[yKey]) : null;
+      chartTypeState !== "pie" ? chartData.map((item) => item[yKey]) : null;
 
     console.log("X values:", xValues);
     console.log("Y values:", yValues);
@@ -305,7 +482,7 @@ const CustomChartBuilder = ({ data, columns }) => {
     // Create chart configuration
     let chartConfig = {};
 
-    switch (chartType) {
+    switch (chartTypeState) {
       case "bar":
         chartConfig = {
           data: [
@@ -317,9 +494,11 @@ const CustomChartBuilder = ({ data, columns }) => {
             },
           ],
           layout: {
-            title: `${yColumn?.header || yAxis} by ${xColumn?.header || xAxis}`,
-            xaxis: { title: xColumn?.header || xAxis },
-            yaxis: { title: yColumn?.header || yAxis },
+            title: `${yColumn?.header || yAxisState} by ${
+              xColumn?.header || xAxisState
+            }`,
+            xaxis: { title: xColumn?.header || xAxisState },
+            yaxis: { title: yColumn?.header || yAxisState },
           },
         };
         break;
@@ -337,9 +516,11 @@ const CustomChartBuilder = ({ data, columns }) => {
             },
           ],
           layout: {
-            title: `${yColumn?.header || yAxis} by ${xColumn?.header || xAxis}`,
-            xaxis: { title: xColumn?.header || xAxis },
-            yaxis: { title: yColumn?.header || yAxis },
+            title: `${yColumn?.header || yAxisState} by ${
+              xColumn?.header || xAxisState
+            }`,
+            xaxis: { title: xColumn?.header || xAxisState },
+            yaxis: { title: yColumn?.header || yAxisState },
           },
         };
         break;
@@ -359,9 +540,11 @@ const CustomChartBuilder = ({ data, columns }) => {
             },
           ],
           layout: {
-            title: `${yColumn?.header || yAxis} by ${xColumn?.header || xAxis}`,
-            xaxis: { title: xColumn?.header || xAxis },
-            yaxis: { title: yColumn?.header || yAxis },
+            title: `${yColumn?.header || yAxisState} by ${
+              xColumn?.header || xAxisState
+            }`,
+            xaxis: { title: xColumn?.header || xAxisState },
+            yaxis: { title: yColumn?.header || yAxisState },
           },
         };
         break;
@@ -408,7 +591,7 @@ const CustomChartBuilder = ({ data, columns }) => {
             },
           ],
           layout: {
-            title: `Distribution of ${xColumn?.header || xAxis}`,
+            title: `Distribution of ${xColumn?.header || xAxisState}`,
           },
         };
         break;
@@ -434,8 +617,8 @@ const CustomChartBuilder = ({ data, columns }) => {
             },
           ],
           layout: {
-            title: `Distribution of ${yColumn?.header || yAxis}`,
-            xaxis: { title: yColumn?.header || yAxis },
+            title: `Distribution of ${yColumn?.header || yAxisState}`,
+            xaxis: { title: yColumn?.header || yAxisState },
             yaxis: { title: "Frequency" },
           },
         };
@@ -451,9 +634,11 @@ const CustomChartBuilder = ({ data, columns }) => {
             },
           ],
           layout: {
-            title: `${yColumn?.header || yAxis} by ${xColumn?.header || xAxis}`,
-            xaxis: { title: xColumn?.header || xAxis },
-            yaxis: { title: yColumn?.header || yAxis },
+            title: `${yColumn?.header || yAxisState} by ${
+              xColumn?.header || xAxisState
+            }`,
+            xaxis: { title: xColumn?.header || xAxisState },
+            yaxis: { title: yColumn?.header || yAxisState },
           },
         };
     }
@@ -907,185 +1092,115 @@ const CustomChartBuilder = ({ data, columns }) => {
         setError("Unknown preset chart selected");
         console.log("Error: Unknown preset chart");
         console.log("==============================");
+        return;
     }
-    console.log("==============================");
   };
 
-  // Reset the chart
-  const resetChart = () => {
-    console.log("=== Reset Chart ===");
-    setGeneratedChart(null);
-    setError("");
-    // Reset axis selections
-    setXAxis("");
-    setYAxis("");
-    setPresetChart("");
-    console.log("Chart reset");
-    console.log("===============");
-  };
+  // Auto-generate chart when configuration changes (with saved view integration)
+  useEffect(() => {
+    // Auto-select saved configuration if it exists and is valid
+    if (chartType && xAxis && yAxis) {
+      setChartTypeState(chartType);
+      setXAxisState(xAxis);
+      setYAxisState(yAxis);
 
-  // Auto-generate chart when a preset is selected
-  React.useEffect(() => {
-    if (presetChart && columnOptions && columnOptions.length > 0) {
-      const preset = presetCharts.find((chart) => chart.id === presetChart);
-      if (preset) {
-        console.log("Auto-generating preset chart:", preset);
-        console.log("Available column options:", columnOptions);
-        // Add a small delay to ensure state is updated before generating
-        const timer = setTimeout(() => {
-          generatePresetChart(preset);
-        }, 100);
-        return () => clearTimeout(timer);
+      // Show notification when loading chart from saved view
+      if (selectedColumns && selectedColumns.length > 0) {
+        // Create notification element
+        const notification = document.createElement("div");
+        notification.className =
+          "fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50";
+        notification.textContent =
+          "Chart updated with saved view configuration";
+
+        // Add to document
+        document.body.appendChild(notification);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 3000);
       }
     }
-  }, [presetChart, columnOptions]);
 
-  // If still loading data, show loading indicator
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-lg p-6 dark:bg-gray-800 dark:text-white">
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">
-          Custom Chart Builder
-        </h2>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <span className="ml-3 text-gray-700 dark:text-gray-300">
-            Loading data from database...
-          </span>
-        </div>
-      </div>
-    );
-  }
+    // Auto-generate chart if we have valid configuration
+    if (
+      chartTypeState &&
+      (xAxisState || chartTypeState === "pie") &&
+      (yAxisState || chartTypeState === "pie")
+    ) {
+      generateChart();
+    }
+  }, [
+    chartType,
+    xAxis,
+    yAxis,
+    chartTypeState,
+    xAxisState,
+    yAxisState,
+    selectedColumns,
+  ]);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 dark:bg-gray-800 dark:text-white transition-all duration-300 hover:shadow-xl">
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">
-        Custom Chart Builder
-      </h2>
-
-      {/* Refresh Data Button */}
-      <div className="mb-4 flex justify-end">
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 hover:scale-105 hover:shadow-lg disabled:opacity-50 flex items-center transition-all duration-300 transform"
-        >
-          {loading ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Refreshing...
-            </>
-          ) : (
-            <>
-              <svg
-                className="w-4 h-4 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                ></path>
-              </svg>
-              Refresh Data
-            </>
-          )}
-        </button>
+    <div className="w-full">
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Chart Builder</h2>
+        <p className="text-gray-600 text-sm">
+          Build custom charts from your data. Select a chart type and configure
+          the axes.
+        </p>
       </div>
 
-      {/* Preset Charts */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Predefined Charts
-        </label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {presetCharts.map((chart) => (
-            <button
-              key={chart.id}
-              onClick={() => {
-                console.log("Selected preset chart:", chart.id);
-                setPresetChart(chart.id);
-                setChartType(chart.type);
-              }}
-              className={`p-4 text-left rounded-lg border-2 transition-all duration-300 ease-in-out transform ${
-                presetChart === chart.id
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md"
-                  : "border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:shadow-lg hover:scale-105 hover:bg-blue-50/50 dark:hover:bg-gray-700/50"
-              }`}
-            >
-              <div className="font-medium text-gray-900 dark:text-white">
-                {chart.name}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {chart.description}
-              </div>
-            </button>
-          ))}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">
+          {error}
         </div>
-      </div>
+      )}
 
-      {/* Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {/* Chart Type */}
+      {/* Validation message for insufficient columns */}
+      {selectedColumns &&
+        selectedColumns.length > 0 &&
+        selectedColumns.length < 2 && (
+          <div className="mb-4 p-3 bg-yellow-50 text-yellow-700 rounded-md text-sm">
+            Not enough columns in this view to generate a chart.
+          </div>
+        )}
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Chart Type
           </label>
           <select
-            value={chartType}
-            onChange={(e) => {
-              console.log("Chart type changed to:", e.target.value);
-              setChartType(e.target.value);
-            }}
-            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-300 hover:border-blue-400 hover:shadow-md"
-            disabled={!!presetChart} // Disable when preset chart is selected
+            value={chartTypeState}
+            onChange={(e) => setChartTypeState(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="bar">Bar</option>
-            <option value="line">Line</option>
-            <option value="pie">Pie</option>
-            <option value="scatter">Scatter</option>
+            <option value="bar">Bar Chart</option>
+            <option value="line">Line Chart</option>
+            <option value="scatter">Scatter Plot</option>
+            <option value="pie">Pie Chart</option>
             <option value="histogram">Histogram</option>
           </select>
         </div>
 
-        {/* X Axis */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            X Axis
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            X-Axis
           </label>
           <select
-            value={xAxis}
-            onChange={(e) => {
-              console.log("X axis changed to:", e.target.value);
-              setXAxis(e.target.value);
-            }}
-            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-300 hover:border-blue-400 hover:shadow-md"
-            disabled={!!presetChart} // Disable when preset chart is selected
+            value={xAxisState}
+            onChange={(e) => setXAxisState(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            disabled={
+              selectedColumns &&
+              selectedColumns.length > 0 &&
+              selectedColumns.length < 2
+            }
           >
-            <option value="">Select X Axis</option>
+            <option value="">Select column</option>
             {xColumnOptions.map((col) => (
               <option key={col.accessorKey} value={col.accessorKey}>
                 {col.header}
@@ -1094,22 +1209,22 @@ const CustomChartBuilder = ({ data, columns }) => {
           </select>
         </div>
 
-        {/* Y Axis (hidden for pie charts) */}
-        {chartType !== "pie" && (
+        {chartTypeState !== "pie" && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Y Axis
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Y-Axis
             </label>
             <select
-              value={yAxis}
-              onChange={(e) => {
-                console.log("Y axis changed to:", e.target.value);
-                setYAxis(e.target.value);
-              }}
-              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-300 hover:border-blue-400 hover:shadow-md"
-              disabled={!!presetChart} // Disable when preset chart is selected
+              value={yAxisState}
+              onChange={(e) => setYAxisState(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              disabled={
+                selectedColumns &&
+                selectedColumns.length > 0 &&
+                selectedColumns.length < 2
+              }
             >
-              <option value="">Select Y Axis</option>
+              <option value="">Select column</option>
               {yColumnOptions.map((col) => (
                 <option key={col.accessorKey} value={col.accessorKey}>
                   {col.header}
@@ -1119,69 +1234,30 @@ const CustomChartBuilder = ({ data, columns }) => {
           </div>
         )}
 
-        {/* Generate Button */}
         <div className="flex items-end">
           <button
             onClick={generateChart}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg border-2 border-blue-600 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-            disabled={!!presetChart} // Disable when preset chart is selected
+            disabled={
+              loading ||
+              (selectedColumns &&
+                selectedColumns.length > 0 &&
+                selectedColumns.length < 2)
+            }
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {presetChart ? "Generate Preset Chart" : "Generate Chart"}
+            {loading ? "Generating..." : "Generate Chart"}
           </button>
         </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded dark:bg-red-900 dark:border-red-700 dark:text-red-100">
-          {error}
-        </div>
-      )}
-
-      {/* Generated Chart */}
       {generatedChart && (
         <div className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-              Generated Chart
-            </h3>
-            <button
-              onClick={resetChart}
-              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-all duration-300 hover:underline"
-            >
-              Clear Chart
-            </button>
-          </div>
-          <div className="border rounded-lg p-4 bg-white dark:bg-gray-700">
-            <Plot
-              data={generatedChart.data}
-              layout={{
-                ...generatedChart.layout,
-                autosize: true,
-                paper_bgcolor: "rgba(0,0,0,0)",
-                plot_bgcolor: "rgba(0,0,0,0)",
-                font: {
-                  color: document.documentElement.classList.contains("dark")
-                    ? "#ffffff"
-                    : "#000000",
-                },
-              }}
-              config={{ responsive: true }}
-              style={{ width: "100%", height: "400px" }}
-              useResizeHandler={true}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Info Message */}
-      {!generatedChart && !error && (
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center dark:bg-blue-900 dark:border-blue-700">
-          <p className="text-blue-800 dark:text-blue-200">
-            {presetChart
-              ? "Select a preset chart and click 'Generate Preset Chart'"
-              : "Select your chart options and click 'Generate Chart' to visualize your data"}
-          </p>
+          <Plot
+            data={generatedChart.data}
+            layout={generatedChart.layout}
+            style={{ width: "100%", height: "100%" }}
+            config={{ responsive: true }}
+          />
         </div>
       )}
     </div>

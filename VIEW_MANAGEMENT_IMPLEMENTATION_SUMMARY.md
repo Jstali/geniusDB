@@ -2,149 +2,94 @@
 
 ## Overview
 
-This document summarizes the implementation of the View Management feature for the Table/Map/Chart views in the GeniusDB application. The feature allows users to create, save, and apply up to 5 preset views with specific column selections and chart configurations.
+This document summarizes the implementation of the View Management flow for the GeniusDB application. The implementation includes frontend components, backend API endpoints, database schema, and integration with existing application features.
 
-## Backend Implementation
+## Key Changes Made
 
-### Database Schema
+### 1. Frontend Implementation
 
-Created a `user_views` SQLite table with the following structure:
+- **New Component**: Created [ViewManagementModal.jsx](file:///Users/stalin_j/geniusdb/frontend/src/components/ViewManagementModal.jsx) - A modal component that allows users to:
 
-- `id` - Primary key (auto-increment)
-- `user_id` - Foreign key to users table
-- `slot` - Integer (1-5) representing the view slot
-- `name` - Optional friendly name for the view
-- `selected_columns` - TEXT field storing comma-separated column names
-- `chart_config` - TEXT field storing chart configuration as comma-separated values
-- `updated_at` - Timestamp of last update
-- `created_at` - Timestamp of creation
-- Unique constraint on (user_id, slot)
+  - Save views with selected columns, chart configurations, and filters
+  - Load previously saved views
+  - Reset/clear saved views
+  - Manage up to 5 view slots with different column limits
+
+- **Updated Components**:
+
+  - [Sidebar.jsx](file:///Users/stalin_j/geniusdb/frontend/src/components/Sidebar.jsx): Updated to use the new ViewManagementModal component
+  - [Dashboard.jsx](file:///Users/stalin_j/geniusdb/frontend/src/pages/Dashboard.jsx): Simplified view management state and prop passing
+  - [HomePage.jsx](file:///Users/stalin_j/geniusdb/frontend/src/pages/HomePage.jsx): Updated to properly apply view configurations to table, map, and chart components
+
+- **Utility Functions**: Created [viewUtils.js](file:///Users/stalin_j/geniusdb/frontend/src/lib/viewUtils.js) with helper functions for applying view configurations to different components
+
+### 2. Backend Implementation
+
+- **API Endpoints**: Updated REST endpoints in [app.py](file:///Users/stalin_j/geniusdb/backend/app.py) to properly handle POST requests with request bodies instead of query parameters
+- **Database Operations**: Implemented SQLite database operations with proper schema for user views
+- **Validation**: Added comprehensive validation for view data including column limits, chart configurations, and filters
+
+### 3. Database Schema
+
+- **Table**: `user_views` with columns:
+  - `id`: Primary key
+  - `user_id`: User identifier (default: 1)
+  - `slot`: View slot (1-5)
+  - `name`: View name
+  - `selected_columns`: CSV string of selected columns
+  - `chart_config`: JSON string of chart configuration
+  - `filters`: JSON string of filter configuration
+  - `created_at`: Timestamp
+  - `updated_at`: Timestamp
+
+### 4. Removed Unused Components
+
+- **Deleted**: Removed the old [ViewManager.jsx](file:///Users/stalin_j/geniusdb/frontend/src/components/ViewManager.jsx) component which was causing conflicts with axios imports
+
+## Technical Details
 
 ### API Endpoints
 
-Implemented RESTful API endpoints:
+1. `GET /api/user/views` - Fetch all saved views for a user
+2. `GET /api/user/views/{slot}` - Fetch a specific saved view by slot
+3. `POST /api/user/views/{slot}` - Save a user view to a specific slot
+4. `DELETE /api/user/views/{slot}` - Reset/clear a saved view from a slot
 
-1. `GET /api/user/views` - Retrieve all 5 views for the authenticated user
-2. `GET /api/user/views/{slot}` - Retrieve a specific view by slot (1-5)
-3. `POST /api/user/views/{slot}` - Create or update a view for the given slot
-4. `DELETE /api/user/views/{slot}` - Remove a saved configuration for a slot
+### Column Limits
+
+- Slot 1: Up to 10 columns
+- Slot 2: Up to 17 columns
+- Slot 3: Up to 20 columns
+- Slot 4: Up to 25 columns
+- Slot 5: Up to 30 columns
 
 ### Validation Rules
 
-- Slot must be between 1 and 5
-- Column count must match the slot requirements:
-  - View 1: Exactly 10 columns
-  - View 2: Exactly 15 columns
-  - View 3: Exactly 20 columns
-  - View 4: Exactly 25 columns
-  - View 5: Exactly 30 columns
-- Selected columns stored as comma-separated string
-- Chart configuration stored as comma-separated values (chartType,xAxis,yAxis)
+- View names are required
+- At least one column must be selected
+- Chart configurations are validated based on selected columns
+- Filters are validated to ensure they reference selected columns
 
-## Frontend Implementation
+## Error Resolution
 
-### Components
+- **Fixed Axios Import Issue**: Removed unused axios import from ViewManagementModal.jsx
+- **Removed Conflicting Component**: Deleted the old ViewManager.jsx component that was causing import conflicts
+- **Standardized API Calls**: Ensured all API calls use fetch instead of axios for consistency
+- **Backend Process Management**: Cleaned up conflicting backend processes and ensured proper port allocation
 
-#### 1. ViewManagementModal
+## Integration Status
 
-Main modal that displays all 5 view slots in a grid layout:
+The View Management flow is now complete and integration-ready:
 
-- Shows preview of saved views with column count and selected columns
-- Displays chart indicator if a chart is saved
-- Provides Edit and Apply buttons for each view slot
+- All frontend components are properly connected
+- Backend endpoints are fully functional
+- Database operations work correctly
+- Validation and error handling are implemented
+- UX follows the specified requirements
 
-#### 2. PivotViewEditor
+## Testing
 
-Dedicated editor component for configuring a single view:
-
-- Column selection with enforced count limits
-- Chart configuration panel with type selection and axis selectors
-- Chart preview area
-- Validation for exact column count requirements
-
-#### 3. Sidebar Integration
-
-Updated Sidebar component to:
-
-- Show View Management button only on Home page
-- Handle API communication for saving and loading views
-- Pass view data to parent components for application
-
-### Features
-
-- Exact column count enforcement per view slot
-- Visual feedback for column selection limits
-- Chart configuration with multiple chart types (Bar, Line, Pie, Scatter)
-- Preview of selected columns in view management grid
-- Error handling and user feedback for validation failures
-
-## Data Storage Format
-
-### Columns
-
-Stored as comma-separated string in the `selected_columns` field:
-
-```
-col1,col2,col3,col4,col5
-```
-
-### Chart Configuration
-
-Stored as comma-separated string in the `chart_config` field:
-
-```
-bar,Category,Value
-pie,Category,Value
-line,Time,Measurement
-```
-
-## Integration Points
-
-### Table View
-
-When a view is applied:
-
-- Table columns are filtered to show only selected columns
-- Column order matches the saved selection order
-
-### Map View
-
-When a view is applied:
-
-- Map markers show popups with only selected columns
-- Marker visibility follows Option A (show all markers but filter popup content)
-
-### Chart View
-
-When a view is applied:
-
-- Chart configuration is used to render the appropriate chart
-- If no chart config exists, shows CTA to configure in View Management
-
-## User Experience
-
-### Workflow
-
-1. User clicks "View Management" button on Home page
-2. Modal displays all 5 view slots with previews
-3. User clicks "Edit" on desired slot
-4. PivotViewEditor opens with column selection and chart configuration
-5. User selects exactly the required number of columns
-6. User configures chart (optional)
-7. User saves view
-8. User can later "Apply" saved views to update the application
-
-### Validation
-
-- Real-time feedback on column selection count
-- Enforcement of exact column count per slot
-- Error messages for mismatched selections
-- Visual indicators for saved views with charts
-
-## Future Enhancements
-
-- Add user authentication integration
-- Implement server-side validation for column existence
-- Add filtering capabilities to views
-- Include view naming functionality
-- Add import/export functionality for views
+- Verified backend API endpoints are accessible and returning correct data
+- Confirmed frontend can communicate with backend through fetch API
+- Tested view save/load/reset functionality
+- Validated column limits and validation rules

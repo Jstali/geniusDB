@@ -1,5 +1,3 @@
-import React, { useState, useEffect } from "react";
-
 const PivotViewEditor = ({
   viewSlot,
   initialData,
@@ -20,43 +18,15 @@ const PivotViewEditor = ({
     initialData?.chart_config ? initialData.chart_config.split(",")[2] : ""
   );
 
-  // Get column limit based on view slot
-  const getColumnLimit = (slot) => {
-    switch (slot) {
-      case 1:
-        return 10;
-      case 2:
-        return 15;
-      case 3:
-        return 20;
-      case 4:
-        return 25;
-      case 5:
-        return 30;
-      default:
-        return 10;
-    }
-  };
-
-  const columnLimit = getColumnLimit(viewSlot);
-
   const handleColumnToggle = (column) => {
     if (selectedColumns.includes(column)) {
       setSelectedColumns(selectedColumns.filter((col) => col !== column));
-    } else if (selectedColumns.length < columnLimit) {
+    } else {
       setSelectedColumns([...selectedColumns, column]);
     }
   };
 
   const handleSave = () => {
-    // Validate column count
-    if (selectedColumns.length !== columnLimit) {
-      alert(
-        `View ${viewSlot} requires exactly ${columnLimit} columns. You have selected ${selectedColumns.length}.`
-      );
-      return;
-    }
-
     // Prepare data for saving
     const viewData = {
       slot: viewSlot,
@@ -77,7 +47,7 @@ const PivotViewEditor = ({
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">
-              Edit View {viewSlot} ({columnLimit} columns)
+              Edit View {viewSlot}
             </h2>
             <button
               onClick={onCancel}
@@ -92,7 +62,7 @@ const PivotViewEditor = ({
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Select Columns ({selectedColumns.length}/{columnLimit})
+                  Select Columns ({selectedColumns.length})
                 </label>
               </div>
               <div className="border rounded-md p-3 h-64 overflow-y-auto">
@@ -102,10 +72,6 @@ const PivotViewEditor = ({
                       type="checkbox"
                       checked={selectedColumns.includes(column)}
                       onChange={() => handleColumnToggle(column)}
-                      disabled={
-                        !selectedColumns.includes(column) &&
-                        selectedColumns.length >= columnLimit
-                      }
                       className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700">
@@ -118,17 +84,6 @@ const PivotViewEditor = ({
                     </span>
                   </label>
                 ))}
-                {selectedColumns.length >= columnLimit && (
-                  <p className="text-xs text-red-500 mt-2">
-                    Maximum of {columnLimit} columns reached for View {viewSlot}
-                  </p>
-                )}
-                {selectedColumns.length < columnLimit && (
-                  <p className="text-xs text-yellow-500 mt-2">
-                    Please select exactly {columnLimit} columns for View{" "}
-                    {viewSlot}
-                  </p>
-                )}
               </div>
             </div>
 

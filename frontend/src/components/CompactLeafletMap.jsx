@@ -74,151 +74,330 @@ const CompactLeafletMap = ({
   data = [],
   filters,
   onMarkerClick,
+  selectedColumns = [], // Add this prop
+  activeView = null, // Add this prop to track active view
 }) => {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const mapRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  // Get API base URL from environment or default to localhost:8000
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
   // Set default filters if not provided
   const effectiveFilters = filters || useMemo(() => ({}), []);
 
-  // Apply filters to the data
-  const filteredData = useMemo(() => {
-    if (!data || data.length === 0) {
-      return [];
+  // Convert frontend filters to backend format
+  const convertFilters = (frontendFilters) => {
+    const backendFilters = {};
+
+    // Site Name filter
+    if (frontendFilters.siteName && frontendFilters.siteName.trim() !== "") {
+      backendFilters["site_name"] = frontendFilters.siteName.trim();
     }
 
-    const result = data.filter((site) => {
-      // Site name filter
-      if (
-        effectiveFilters.siteName &&
-        effectiveFilters.siteName.trim() !== ""
-      ) {
-        const siteName = site["Site Name"] || "";
-        if (
-          !siteName
-            .toLowerCase()
-            .includes(effectiveFilters.siteName.toLowerCase())
-        ) {
-          return false;
-        }
-      }
+    // Voltage Level filter
+    if (frontendFilters.voltage && frontendFilters.voltage !== "") {
+      backendFilters["voltage_level"] = parseInt(frontendFilters.voltage);
+    }
 
-      // Voltage filter
-      if (effectiveFilters.voltage && effectiveFilters.voltage.length > 0) {
-        const siteVoltage = site["Site Voltage"];
-        if (siteVoltage && !effectiveFilters.voltage.includes(siteVoltage)) {
-          return false;
-        }
-      }
+    // Available Power filter - use >= operator as per requirements
+    if (
+      frontendFilters.powerRange &&
+      frontendFilters.powerRange.min !== undefined &&
+      frontendFilters.powerRange.min > 0
+    ) {
+      backendFilters["available_power"] = frontendFilters.powerRange.min;
+    }
 
-      // Power range filter - only show sites with availablePower <= selectedValue
-      if (effectiveFilters.powerRange) {
-        const headroom = site["Generation Headroom Mw"];
-        if (headroom !== undefined && headroom !== null && !isNaN(headroom)) {
-          if (headroom > effectiveFilters.powerRange.max) {
-            return false;
-          }
-        } else {
-          // If headroom is undefined/null/NaN, we still include the site
-          // This ensures sites without power data are still visible
-        }
-      }
+    // Network Operator filter
+    if (frontendFilters.operators && frontendFilters.operators !== "") {
+      backendFilters["network_operator"] = frontendFilters.operators;
+    }
 
-      // Operator filter
-      if (effectiveFilters.operators && effectiveFilters.operators.length > 0) {
-        const licenceArea = site["Licence Area"];
-        if (licenceArea && !effectiveFilters.operators.includes(licenceArea)) {
-          return false;
-        }
-      }
+    console.log("Converted filters:", backendFilters);
+    return backendFilters;
+  };
 
-      // Check if site has valid coordinates
-      const spatialCoords = site["Spatial Coordinates"];
-      if (!spatialCoords || spatialCoords === "\\N") {
-        console.log(
-          "Site filtered out due to missing coordinates:",
-          site["Site Name"]
-        );
-        return false;
-      }
-
-      return true;
-    });
-
-    return result;
-  }, [data, effectiveFilters]);
-
+  // Fetch filtered map data from backend when filters change
   useEffect(() => {
-    const processMapData = () => {
+    const fetchFilteredMapData = async () => {
+      // Cancel any ongoing requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Create new abort controller for this request
+      abortControllerRef.current = new AbortController();
+
       try {
         setLoading(true);
-        console.log("Processing map data with filters...", {
-          filters: effectiveFilters,
-          dataLength: data.length,
-          filteredDataLength: filteredData.length,
-          isHomePage: isHomePage,
-        });
+        setError(null);
 
-        // Transform the filtered data into the format expected by the map component
-        const transformedMarkers = filteredData
-          .map((site, index) => {
-            // Get spatial coordinates (format: "lat, lng")
+        // If we have an active view, use the new backend endpoint
+        if (activeView) {
+          console.log(
+            "CompactLeafletMap: Fetching filtered map data with active view",
+            {
+              activeView,
+              filters: effectiveFilters,
+            }
+          );
+
+          // Convert frontend filters to backend format
+          const backendFilters = convertFilters(effectiveFilters);
+
+          // Log filters before sending to backend
+          console.log("Sending filters to backend:", backendFilters);
+
+          // Prepare the request payload with the correct structure
+          const payload = {
+            filters: backendFilters,
+            selected_columns: [
+              "site_name",
+              "latitude",
+              "longitude",
+              "voltage_level",
+              "available_power",
+              "network_operator",
+            ],
+          };
+
+          // Make request to the new backend endpoint
+          const response = await fetch(
+            `${API_BASE}/api/views/${activeView}/map-data?user_id=1`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(payload),
+              signal: abortControllerRef.current.signal,
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          console.log("CompactLeafletMap: Received filtered map data", result);
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          // Transform backend response to markers
+          const transformedMarkers = result.rows.map((row, index) => {
+            return {
+              id: `${row.site_name}-${index}`,
+              position: [row.latitude, row.longitude],
+              popupText: `${row.site_name}`,
+              siteName: row.site_name,
+              siteVoltage: row.voltage_level,
+              generationHeadroom: row.available_power,
+              licenceArea: row.network_operator,
+              color: getMarkerColor(row.available_power),
+              ...row,
+            };
+          });
+
+          setMarkers(transformedMarkers);
+        } else if (isHomePage) {
+          // For home page, use the new /api/map-data endpoint
+          console.log(
+            "CompactLeafletMap: Fetching filtered map data for home page",
+            {
+              filters: effectiveFilters,
+            }
+          );
+
+          // Convert frontend filters to backend format
+          const backendFilters = convertFilters(effectiveFilters);
+
+          // Log filters before sending to backend
+          console.log("Sending filters to home page endpoint:", backendFilters);
+
+          // Prepare the request payload with the correct structure
+          const payload = {
+            filters: backendFilters,
+          };
+
+          // Make request to the new home page backend endpoint
+          const response = await fetch(`${API_BASE}/api/map-data`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+            signal: abortControllerRef.current.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          console.log("CompactLeafletMap: Received home page map data", result);
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          // Transform backend response to markers
+          const transformedMarkers = result.rows.map((row, index) => {
+            return {
+              id: `${row.site_name}-${index}`,
+              position: [row.latitude, row.longitude],
+              popupText: `${row.site_name}`,
+              siteName: row.site_name,
+              siteVoltage: row.voltage_level,
+              generationHeadroom: row.available_power,
+              licenceArea: row.network_operator,
+              color: getMarkerColor(row.available_power),
+            };
+          });
+
+          setMarkers(transformedMarkers);
+        } else {
+          // Apply filters to the data
+          const filteredData = data.filter((site) => {
+            // Site name filter
+            if (
+              effectiveFilters.siteName &&
+              effectiveFilters.siteName.trim() !== ""
+            ) {
+              const siteName = site["Site Name"] || "";
+              if (
+                !siteName
+                  .toLowerCase()
+                  .includes(effectiveFilters.siteName.toLowerCase())
+              ) {
+                return false;
+              }
+            }
+
+            // Voltage filter
+            if (effectiveFilters.voltage && effectiveFilters.voltage !== "") {
+              const siteVoltage = site["Site Voltage"];
+              if (siteVoltage && siteVoltage !== effectiveFilters.voltage) {
+                return false;
+              }
+            }
+
+            // Power range filter - only show sites with availablePower >= selectedValue
+            if (
+              effectiveFilters.powerRange &&
+              effectiveFilters.powerRange.min > 0
+            ) {
+              const headroom = site["Generation Headroom Mw"];
+              if (
+                headroom !== undefined &&
+                headroom !== null &&
+                !isNaN(headroom)
+              ) {
+                if (headroom < effectiveFilters.powerRange.min) {
+                  return false;
+                }
+              } else {
+                // If headroom is undefined/null/NaN, we still include the site
+                // This ensures sites without power data are still visible
+              }
+            }
+
+            // Operator filter
+            if (
+              effectiveFilters.operators &&
+              effectiveFilters.operators !== ""
+            ) {
+              const licenceArea = site["Licence Area"];
+              if (licenceArea && licenceArea !== effectiveFilters.operators) {
+                return false;
+              }
+            }
+
+            // Check if site has valid coordinates
             const spatialCoords = site["Spatial Coordinates"];
             if (!spatialCoords || spatialCoords === "\\N") {
-              return null;
+              console.log(
+                "Site filtered out due to missing coordinates:",
+                site["Site Name"]
+              );
+              return false;
             }
 
-            try {
-              const coords = spatialCoords.trim().split(", ");
-              if (coords.length !== 2) return null;
+            return true;
+          });
 
-              const lat = parseFloat(coords[0]);
-              const lng = parseFloat(coords[1]);
+          // Transform the filtered data into the format expected by the map component
+          const transformedMarkers = filteredData
+            .map((site, index) => {
+              // Get spatial coordinates (format: "lat, lng")
+              const spatialCoords = site["Spatial Coordinates"];
+              if (!spatialCoords || spatialCoords === "\\N") {
+                return null;
+              }
 
-              if (isNaN(lat) || isNaN(lng)) return null;
+              try {
+                const coords = spatialCoords.trim().split(", ");
+                if (coords.length !== 2) return null;
 
-              // Get site name
-              const siteName = site["Site Name"] || "Unknown Site";
+                const lat = parseFloat(coords[0]);
+                const lng = parseFloat(coords[1]);
 
-              // Get Generation Headroom Mw value
-              const generationHeadroom = site["Generation Headroom Mw"];
+                if (isNaN(lat) || isNaN(lng)) return null;
 
-              // Create a unique ID by combining site ID or name with index to prevent duplicates
-              const uniqueId = site["id"]
-                ? `${site["id"]}-${index}`
-                : `${siteName}-${index}`;
+                // Get site name
+                const siteName = site["Site Name"] || "Unknown Site";
 
-              return {
-                id: uniqueId,
-                position: [lat, lng],
-                popupText: `${siteName} (${site["Site Type"] || "Unknown"})`,
-                siteName: siteName,
-                siteType: site["Site Type"] || "Unknown",
-                siteVoltage: site["Site Voltage"] || "Unknown",
-                county: site["County"] || "Unknown",
-                generationHeadroom: generationHeadroom,
-                color: getMarkerColor(generationHeadroom),
-                // Include the full site data so all fields are available in SiteDetailsPanel
-                ...site,
-              };
-            } catch (e) {
-              console.error("Error processing site coordinates:", site, e);
-              return null;
-            }
-          })
-          .filter((marker) => marker !== null); // Remove null markers
+                // Get Generation Headroom Mw value
+                const generationHeadroom = site["Generation Headroom Mw"];
 
-        setMarkers(transformedMarkers);
-        console.log("Markers set:", transformedMarkers.length);
+                // Create a unique ID by combining site ID or name with index to prevent duplicates
+                const uniqueId = site["id"]
+                  ? `${site["id"]}-${index}`
+                  : `${siteName}-${index}`;
+
+                return {
+                  id: uniqueId,
+                  position: [lat, lng],
+                  popupText: `${siteName} (${site["Site Type"] || "Unknown"})`,
+                  siteName: siteName,
+                  siteType: site["Site Type"] || "Unknown",
+                  siteVoltage: site["Site Voltage"] || "Unknown",
+                  county: site["County"] || "Unknown",
+                  generationHeadroom: generationHeadroom,
+                  color: getMarkerColor(generationHeadroom),
+                  // Include only selected columns in the marker data if provided
+                  ...(selectedColumns.length > 0
+                    ? selectedColumns.reduce((acc, col) => {
+                        acc[col] = site[col];
+                        return acc;
+                      }, {})
+                    : site),
+                };
+              } catch (e) {
+                console.error("Error processing site coordinates:", site, e);
+                return null;
+              }
+            })
+            .filter((marker) => marker !== null); // Remove null markers
+
+          setMarkers(transformedMarkers);
+          console.log(
+            "CompactLeafletMap: Markers set:",
+            transformedMarkers.length
+          );
+        }
 
         // Auto-fit map to markers after data is loaded (only for home page)
-        if (isHomePage && mapRef.current && transformedMarkers.length > 0) {
+        if (isHomePage && mapRef.current && markers.length > 0) {
           console.log("Auto-fitting map to markers for home page");
           // Calculate bounds of all markers
           const bounds = L.latLngBounds(
-            transformedMarkers.map((marker) => marker.position)
+            markers.map((marker) => marker.position)
           );
 
           // Fit map to bounds with padding
@@ -231,7 +410,7 @@ const CompactLeafletMap = ({
               console.log("Map fitted to bounds");
             }
           }, 100);
-        } else if (isHomePage && transformedMarkers.length === 0) {
+        } else if (isHomePage && markers.length === 0) {
           console.log("No markers to display on home page map");
           // Set map to default view (this will not override user interactions)
           setTimeout(() => {
@@ -245,8 +424,13 @@ const CompactLeafletMap = ({
           }, 100);
         }
       } catch (err) {
-        console.error("Error processing map data:", err);
-        setError("Failed to process map data");
+        if (err.name === "AbortError") {
+          console.log("CompactLeafletMap: Request was cancelled");
+          return; // Exit early if request was cancelled
+        }
+
+        console.error("CompactLeafletMap: Error processing map data:", err);
+        setError("Failed to process map data: " + err.message);
         // Fallback to sample data if processing fails
         const sampleMarkers = [
           {
@@ -289,8 +473,15 @@ const CompactLeafletMap = ({
       }
     };
 
-    processMapData();
-  }, [filteredData, isHomePage]);
+    fetchFilteredMapData();
+
+    // Cleanup function to cancel any ongoing requests
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [data, isHomePage, selectedColumns, activeView, effectiveFilters]);
 
   useEffect(() => {
     // Handle window resize to ensure map resizes properly

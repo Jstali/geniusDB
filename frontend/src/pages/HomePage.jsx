@@ -3,8 +3,21 @@ import CompactLeafletMap from "../components/CompactLeafletMap";
 import SidebarFilters from "../components/SidebarFilters";
 import SiteDetailsPanel from "../components/SiteDetailsPanel";
 import DataTable from "../components/DataTable";
+// Removed CustomChartBuilder import
 
-const HomePage = () => {
+const HomePage = ({
+  tableViewConfig = {
+    selectedColumns: [],
+    filters: {},
+  },
+  setTableViewConfig = () => {},
+  chartViewConfig = {
+    type: "bar",
+    xAxis: "",
+    yAxis: "",
+  },
+  setChartViewConfig = () => {},
+}) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -12,10 +25,11 @@ const HomePage = () => {
   const [selectedSite, setSelectedSite] = useState(null);
   const [filters, setFilters] = useState({
     siteName: "",
-    voltage: [],
-    powerRange: { min: 0, max: 200 }, // Show all sites by default (<= 200 MW)
-    operators: [],
+    voltage: "",
+    powerRange: { min: 0 },
+    operators: "",
   });
+  const [activeView, setActiveView] = useState(null); // Track active view
 
   // Fetch data from the same endpoint as TableView
   useEffect(() => {
@@ -77,6 +91,34 @@ const HomePage = () => {
     fetchData();
   }, []);
 
+  // Apply view configuration when it changes
+  useEffect(() => {
+    if (
+      tableViewConfig?.selectedColumns &&
+      tableViewConfig.selectedColumns.length > 0
+    ) {
+      console.log("Applying view configuration:", tableViewConfig);
+    }
+
+    if (tableViewConfig?.filters) {
+      console.log("Applying view filters:", tableViewConfig.filters);
+    }
+
+    // Set active view when tableViewConfig changes
+    if (tableViewConfig?.activeView) {
+      setActiveView(tableViewConfig.activeView);
+    }
+  }, [tableViewConfig]);
+
+  // Handle column selection changes
+  const handleSelectedColumnsChange = (selectedColumns) => {
+    // Update the tableViewConfig with the new selected columns
+    setTableViewConfig({
+      ...tableViewConfig,
+      selectedColumns,
+    });
+  };
+
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
     if (!data || data.length === 0) return null;
@@ -125,6 +167,14 @@ const HomePage = () => {
     setSelectedSite(site);
   };
 
+  // Create a unified filter object for the map component
+  const mapFilters = {
+    siteName: filters.siteName,
+    voltage: filters.voltage,
+    powerRange: filters.powerRange,
+    operators: filters.operators,
+  };
+
   return (
     <div className="flex flex-col h-full pt-4 transition-all duration-300">
       {/* Top section with map and panels */}
@@ -139,8 +189,8 @@ const HomePage = () => {
             onPowerRangeChange={(range) => {
               setFilters({ ...filters, powerRange: range });
             }}
-            onOperatorFilter={(operators) =>
-              setFilters({ ...filters, operators })
+            onOperatorFilter={(operator) =>
+              setFilters({ ...filters, operators: operator })
             }
             voltageLevels={voltageLevels}
             operators={operators}
@@ -154,8 +204,10 @@ const HomePage = () => {
             <CompactLeafletMap
               isHomePage={true}
               data={data}
-              filters={filters}
+              filters={mapFilters}
+              selectedColumns={tableViewConfig?.selectedColumns || []}
               onMarkerClick={handleMarkerClick}
+              activeView={activeView} // Pass active view to map component
             />
           </div>
         </div>
@@ -170,7 +222,7 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* Bottom section - Table */}
+      {/* Bottom section - Table (removed chart section) */}
       <div className="flex-grow bg-white rounded-lg shadow-lg p-4 transition-all duration-300 hover:shadow-xl">
         {loading ? (
           <div className="w-full h-64 flex items-center justify-center">
@@ -181,7 +233,12 @@ const HomePage = () => {
             <div className="text-red-600">{error}</div>
           </div>
         ) : (
-          <DataTable data={data} columns={columns} />
+          <DataTable
+            data={data}
+            columns={columns}
+            selectedColumns={tableViewConfig?.selectedColumns || []}
+            onSelectedColumnsChange={handleSelectedColumnsChange}
+          />
         )}
       </div>
     </div>
